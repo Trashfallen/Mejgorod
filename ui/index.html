@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MihomoDesk</title>
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body class="st-stopped">
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <img src="/favicon.png" alt="" width="34" height="34">
+      <div class="brand-text">
+        <b>MihomoDesk</b>
+        <span id="brandStatus">отключено</span>
+      </div>
+    </div>
+    <nav class="nav">
+      <button class="nav-item active" data-page="home">
+        <svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/></svg>
+        <span>Главная</span>
+      </button>
+      <button class="nav-item" data-page="servers">
+        <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01"/><path d="M7 16.5h.01"/></svg>
+        <span>Серверы</span>
+      </button>
+      <button class="nav-item" data-page="groups">
+        <svg viewBox="0 0 24 24"><path d="m12 2 10 5-10 5L2 7l10-5z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg>
+        <span>Группы</span>
+      </button>
+      <button class="nav-item" data-page="config">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="m10 13-2 2 2 2"/><path d="m14 17 2-2-2-2"/></svg>
+        <span>Конфиг</span>
+        <i class="nav-dot" id="navCfgDot" hidden></i>
+      </button>
+      <button class="nav-item" data-page="logs">
+        <svg viewBox="0 0 24 24"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></svg>
+        <span>Логи</span>
+        <i class="nav-dot err" id="navLogDot" hidden></i>
+      </button>
+      <button class="nav-item" data-page="settings">
+        <svg viewBox="0 0 24 24"><path d="M4 21v-7"/><path d="M4 10V3"/><path d="M12 21v-9"/><path d="M12 8V3"/><path d="M20 21v-5"/><path d="M20 12V3"/><path d="M1 14h6"/><path d="M9 8h6"/><path d="M17 16h6"/></svg>
+        <span>Настройки</span>
+      </button>
+    </nav>
+    <div class="side-foot">
+      <button class="mini-power" id="miniPower" title="Подключить / отключить">
+        <svg viewBox="0 0 24 24"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.77.04"/></svg>
+        <span id="miniPowerText">Подключить</span>
+      </button>
+      <div class="versions" id="versions">v1.0.0</div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <!-- ГЛАВНАЯ -->
+    <section class="page active" id="page-home">
+      <div class="hero">
+        <button class="power" id="power" aria-label="Подключить">
+          <svg viewBox="0 0 24 24"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.77.04"/></svg>
+        </button>
+        <div class="hero-status" id="heroStatus">Отключено</div>
+        <div class="hero-sub" id="heroSub">Нажмите, чтобы подключиться</div>
+        <button class="hero-server" id="heroServer" data-goto="servers" hidden>
+          <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01"/><path d="M7 16.5h.01"/></svg>
+          <span id="heroServerName"></span>
+        </button>
+        <div class="hero-progress" id="heroProgress" hidden><div></div></div>
+        <div class="hero-error" id="heroError" hidden></div>
+      </div>
+
+      <div class="notice" id="homeNotice" hidden></div>
+
+      <div class="stats">
+        <div class="stat">
+          <span class="stat-label"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>Загрузка</span>
+          <b id="stDown">0 Б/с</b>
+        </div>
+        <div class="stat">
+          <span class="stat-label"><svg viewBox="0 0 24 24"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>Отдача</span>
+          <b id="stUp">0 Б/с</b>
+        </div>
+        <div class="stat">
+          <span class="stat-label"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>За сессию</span>
+          <b id="stTotal">0 Б</b>
+        </div>
+        <div class="stat">
+          <span class="stat-label"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M5 6h14"/><path d="M5 18h14"/></svg>Соединения</span>
+          <b id="stConns">0</b>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h3>Группы</h3>
+          <button class="link" data-goto="groups">Все группы и пинг</button>
+        </div>
+        <div class="quick" id="quickGroups"></div>
+        <div class="empty small" id="quickEmpty">Подключитесь, чтобы выбирать серверы для сервисов</div>
+      </div>
+    </section>
+
+    <!-- СЕРВЕРЫ -->
+    <section class="page" id="page-servers">
+      <header class="page-head">
+        <h2>Серверы</h2>
+        <div class="tools">
+          <button class="btn" id="srvPing" title="Проверить задержку до серверов">
+            <svg viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>Пинг
+          </button>
+          <button class="btn primary" id="srvAdd">
+            <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>Импорт из ссылки vless
+          </button>
+        </div>
+      </header>
+      <div class="srv-list" id="srvList"></div>
+      <div class="srv-empty card" id="srvEmpty" hidden>
+        <b>Серверов пока нет</b>
+        <span>Скопируйте ссылку <code>vless://...</code> из панели сервера (3x-ui, Remnawave) или от провайдера и нажмите «Импорт». Первый импортированный сервер выберется сам.</span>
+        <button class="btn primary" id="srvEmptyAdd">Импорт из ссылки vless</button>
+      </div>
+      <p class="muted small srv-note" id="srvNote"></p>
+    </section>
+
+    <!-- ГРУППЫ -->
+    <section class="page" id="page-groups">
+      <header class="page-head">
+        <h2>Группы</h2>
+        <div class="tools">
+          <label class="search">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <input id="groupSearch" placeholder="Поиск группы или сервера">
+          </label>
+          <button class="btn" id="pingAll">
+            <svg viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>Пинг всех
+          </button>
+        </div>
+      </header>
+      <div class="empty" id="groupsEmpty">Подключитесь, чтобы выбирать серверы для сервисов</div>
+      <div class="groups" id="groupsList"></div>
+    </section>
+
+    <!-- КОНФИГ -->
+    <section class="page page-fill" id="page-config">
+      <header class="page-head">
+        <h2>Конфиг <span class="badge warn" id="cfgDirty" hidden>не сохранён</span></h2>
+        <div class="tools">
+          <button class="btn" id="cfgTemplate" title="Загрузить готовый конфиг">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>Шаблон
+          </button>
+          <button class="btn" id="cfgPaste" title="Заменить конфиг содержимым буфера обмена">
+            <svg viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>Вставить
+          </button>
+          <button class="btn" id="cfgOpen" title="Загрузить конфиг из файла">
+            <svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Файл
+          </button>
+          <input type="file" id="cfgFile" accept=".yaml,.yml,.txt,.conf" hidden>
+          <span class="tools-sep"></span>
+          <button class="btn" id="cfgCheck">
+            <svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Проверить
+          </button>
+          <button class="btn" id="cfgSave" title="Ctrl+S">
+            <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>Сохранить
+          </button>
+          <button class="btn primary" id="cfgApply" title="Сохранить и переподключиться">
+            <svg viewBox="0 0 24 24"><path d="m6 4 14 8-14 8z"/></svg>Применить
+          </button>
+        </div>
+      </header>
+      <div class="cfg-body">
+        <div class="editor" id="editor">
+          <div class="gutter"><div class="gutter-inner" id="gutter">1</div></div>
+          <div class="code">
+            <div class="layer" id="layer">
+              <div class="err-mark" id="errMark" hidden></div>
+              <pre class="hl" id="hl" aria-hidden="true"></pre>
+            </div>
+            <textarea id="cfgText" spellcheck="false" wrap="off" autocomplete="off" autocapitalize="off"></textarea>
+          </div>
+          <div class="editor-empty" id="editorEmpty" hidden>
+            <b>Конфиг пуст</b>
+            <span>Начните с готового шаблона или вставьте свой конфиг mihomo, например тот же, что на роутере в XKeen. Файл .yaml можно просто перетащить сюда.</span>
+            <div class="editor-empty-actions">
+              <button class="btn primary" id="emptyTemplate"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>Выбрать шаблон</button>
+              <button class="btn" id="emptyPaste">Вставить из буфера</button>
+            </div>
+          </div>
+          <div class="drop-hint">Отпустите файл, чтобы загрузить конфиг</div>
+        </div>
+        <aside class="cfg-side">
+          <div class="card">
+            <h3>Проверка</h3>
+            <div class="result" id="cfgResult"><span class="muted">Ещё не проверялся</span></div>
+          </div>
+          <div class="card">
+            <h3>Для ПК программа сама поменяет</h3>
+            <ul class="changes" id="cfgChanges"><li class="muted">Вставьте конфиг</li></ul>
+            <button class="btn small" id="cfgPreview">Показать итоговый конфиг</button>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ЛОГИ -->
+    <section class="page page-fill" id="page-logs">
+      <header class="page-head">
+        <h2>Логи</h2>
+        <div class="tools">
+          <div class="seg" id="logFilter">
+            <button data-f="all" class="on">Все</button>
+            <button data-f="important">Важные</button>
+            <button data-f="error">Ошибки</button>
+          </div>
+          <label class="search">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <input id="logSearch" placeholder="Фильтр">
+          </label>
+          <label class="field-inline" title="Сколько пишет ядро. Действует до переподключения">
+            Ядро:
+            <select id="coreLevel" disabled>
+              <option value="silent">молчит</option>
+              <option value="error">ошибки</option>
+              <option value="warning">предупреждения</option>
+              <option value="info">инфо</option>
+              <option value="debug">отладка</option>
+            </select>
+          </label>
+          <label class="chk"><input type="checkbox" id="logFollow" checked>Автопрокрутка</label>
+          <button class="btn" id="logCopy">Копировать</button>
+          <button class="btn" id="logClear">Очистить</button>
+        </div>
+      </header>
+      <div class="logview" id="logView"></div>
+    </section>
+
+    <!-- НАСТРОЙКИ -->
+    <section class="page" id="page-settings">
+      <header class="page-head"><h2>Настройки</h2></header>
+      <div class="settings">
+        <div class="card">
+          <h3>Запуск</h3>
+          <label class="row">
+            <div class="row-text"><b>Запускать вместе с Windows</b><span>Программа стартует в трее при входе в систему, без запроса прав администратора</span></div>
+            <input type="checkbox" class="switch" id="setAutostart">
+          </label>
+          <label class="row">
+            <div class="row-text"><b>Подключаться при запуске</b><span>Сразу включать VPN, когда программа запускается</span></div>
+            <input type="checkbox" class="switch" id="setConnect">
+          </label>
+        </div>
+
+        <div class="card">
+          <h3>TUN</h3>
+          <label class="row">
+            <div class="row-text"><b>Стек</b><span>mixed подходит почти всем. gvisor - если что-то не работает, system - быстрее всех, но требует разрешения в брандмауэре. Рядом с Citrix программа сама берёт gvisor</span></div>
+            <select id="setStack">
+              <option value="mixed">mixed</option>
+              <option value="gvisor">gvisor</option>
+              <option value="system">system</option>
+            </select>
+          </label>
+          <label class="row">
+            <div class="row-text"><b>Маршруты</b><span>«Авто»: весь трафик, а рядом с рабочим VPN (Citrix) - только нужное, чтобы не мешать ему. «Только нужное»: в TUN идут адреса fake-ip и подсети из правил, остальное мимо</span></div>
+            <select id="setRoute">
+              <option value="auto">Авто</option>
+              <option value="full">Весь трафик</option>
+              <option value="split">Только нужное</option>
+            </select>
+          </label>
+          <label class="row">
+            <div class="row-text"><b>Строгая маршрутизация</b><span>strict-route: DNS не утекает мимо VPN. Может мешать другим VPN и доступу к локальной сети</span></div>
+            <input type="checkbox" class="switch" id="setStrict">
+          </label>
+          <label class="row">
+            <div class="row-text"><b>Порт панели управления</b><span>API ядра и zashboard на 127.0.0.1</span></div>
+            <input type="number" class="num" id="setPort" min="1024" max="65535">
+          </label>
+        </div>
+
+        <div class="card">
+          <h3>Ядро mihomo</h3>
+          <div class="row">
+            <div class="row-text"><b id="coreVer">не установлено</b><span>Официальная сборка с github.com/MetaCubeX/mihomo</span></div>
+            <button class="btn" id="coreUpdate">Обновить ядро</button>
+          </div>
+          <div class="progress" id="coreProgress" hidden><div></div></div>
+          <div class="muted small" id="coreMsg"></div>
+        </div>
+
+        <div class="card">
+          <h3>Разное</h3>
+          <div class="row">
+            <div class="row-text"><b>Панель zashboard</b><span>Подробная статистика соединений и правил, как на роутере</span></div>
+            <button class="btn" id="openZash">Открыть</button>
+          </div>
+          <div class="row">
+            <div class="row-text"><b>Папка программы</b><span id="dataDir"></span></div>
+            <button class="btn" id="openData">Открыть</button>
+          </div>
+          <div class="row">
+            <div class="row-text"><b>Выход</b><span>Отключить VPN и закрыть программу. Чтобы свернуть в трей, просто закройте окно</span></div>
+            <button class="btn danger" id="quitApp">Выйти</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<dialog class="modal" id="previewModal">
+  <div class="modal-head">
+    <h3>Итоговый конфиг для ПК</h3>
+    <button class="btn small" id="previewClose">Закрыть</button>
+  </div>
+  <pre class="hl modal-code" id="previewCode"></pre>
+</dialog>
+
+<dialog class="modal modal-small" id="tplModal">
+  <div class="modal-head">
+    <h3>Шаблон конфига</h3>
+    <button class="btn small" id="tplClose">Закрыть</button>
+  </div>
+  <div class="modal-body">
+    <p class="muted small">Шаблон заменит текст в редакторе (Ctrl+Z вернёт прежний). Серверов в шаблонах нет: после загрузки добавьте свой на вкладке «Серверы».</p>
+    <div class="tpl-list" id="tplList"></div>
+    <p class="muted small" id="tplDir"></p>
+    <div class="modal-actions">
+      <button class="btn primary" id="tplLoad" disabled>Загрузить в редактор</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="modal modal-small" id="srvModal">
+  <div class="modal-head">
+    <h3>Импорт из ссылки vless</h3>
+    <button class="btn small" id="srvModalClose">Закрыть</button>
+  </div>
+  <div class="modal-body">
+    <p class="muted small">Вставьте ссылку <code>vless://</code>. Можно несколько, по одной в строке.</p>
+    <textarea id="srvInput" spellcheck="false" placeholder="vless://uuid@host:443?type=tcp&amp;security=reality&amp;pbk=...&amp;sni=...#Название"></textarea>
+    <div class="result" id="srvAddResult"></div>
+    <div class="modal-actions">
+      <button class="btn" id="srvPasteBtn">Вставить из буфера</button>
+      <button class="btn primary" id="srvAddConfirm">Импортировать</button>
+    </div>
+  </div>
+</dialog>
+
+<div class="overlay" id="overlay" hidden>
+  <div class="overlay-box">
+    <b id="overlayTitle">Окно устарело</b>
+    <span id="overlayText">Откройте MihomoDesk заново из значка в трее.</span>
+  </div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+<script src="/app.js"></script>
+</body>
+</html>

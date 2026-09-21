@@ -1,0 +1,70 @@
+package main
+
+// Окно программы - Edge в режиме приложения (--app): отдельное окно без
+// вкладок и адресной строки. Edge есть в любой Windows 10/11.
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+
+	"golang.org/x/sys/windows/registry"
+)
+
+func findEdge() string {
+	for _, root := range []registry.Key{registry.LOCAL_MACHINE, registry.CURRENT_USER} {
+		k, err := registry.OpenKey(root, `SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\msedge.exe`, registry.QUERY_VALUE)
+		if err == nil {
+			p, _, err := k.GetStringValue("")
+			k.Close()
+			if err == nil && fileExists(p) {
+				return p
+			}
+		}
+	}
+	for _, env := range []string{"ProgramFiles(x86)", "ProgramFiles", "LocalAppData"} {
+		if base := os.Getenv(env); base != "" {
+			p := filepath.Join(base, "Microsoft", "Edge", "Application", "msedge.exe")
+			if fileExists(p) {
+				return p
+			}
+		}
+	}
+	return ""
+}
+
+func (a *App) windowURL() string {
+	return fmt.Sprintf("http://127.0.0.1:%d/#t=%s", a.port, a.token)
+}
+
+func (a *App) openWindow() {
+	url := a.windowURL()
+	if edge := findEdge(); edge != "" {
+		cmd := exec.Command(edge,
+			"--app="+url,
+			"--user-data-dir="+a.paths.WebProfile,
+			"--window-size=1180,800",
+			"--no-first-run",
+			"--no-default-browser-check",
+			"--disable-features=Translate,msEdgeSidebarV2,msUndersideButton",
+		)
+		if err := cmd.Start(); err == nil {
+			go cmd.Wait()
+			return
+		}
+	}
+	openURL(url)
+}
+
+func openURL(url string) {
+	cmd := exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	_ = cmd.Start()
+	go cmd.Wait()
+}
+
+func openFolder(path string) {
+	cmd := exec.Command("explorer.exe", path)
+	_ = cmd.Start()
+	go cmd.Wait()
+}
