@@ -16,6 +16,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 	"unsafe"
 
@@ -139,6 +140,32 @@ func fetchGeoList(ctx context.Context, kind, name, domain string) (*geoList, err
 	if err := sc.Err(); err != nil {
 		return nil, err
 	}
+	return l, nil
+}
+
+var geoListCache = struct {
+	mu sync.Mutex
+	m  map[string]*geoList
+}{m: map[string]*geoList{}}
+
+// cachedGeoList - как fetchGeoList, но список каждой категории качает только
+// один раз за время работы программы (используется для иконки-подсказки
+// «сайты и домены» на вкладке «Шаблоны», её могут навести много раз подряд).
+func cachedGeoList(ctx context.Context, kind, name string) (*geoList, error) {
+	key := kind + "/" + name
+	geoListCache.mu.Lock()
+	l, ok := geoListCache.m[key]
+	geoListCache.mu.Unlock()
+	if ok {
+		return l, nil
+	}
+	l, err := fetchGeoList(ctx, kind, name, "")
+	if err != nil {
+		return nil, err
+	}
+	geoListCache.mu.Lock()
+	geoListCache.m[key] = l
+	geoListCache.mu.Unlock()
 	return l, nil
 }
 

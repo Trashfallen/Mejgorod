@@ -93,6 +93,32 @@ func (a *App) migrateProfiles() {
 	a.logs.Add("app", "info", "Конфиг стал профилем «"+defaultProfile+"»")
 }
 
+// profileConfigText - текст произвольного профиля по имени (для активного -
+// через кэш userConfig, для остальных - прямое чтение файла).
+func (a *App) profileConfigText(name string) string {
+	if name == a.settings.Get().ActiveProfile {
+		return a.userConfig()
+	}
+	b, err := os.ReadFile(a.profilePath(name))
+	if err != nil {
+		return ""
+	}
+	return string(b)
+}
+
+// writeProfileConfig сохраняет текст в конкретный профиль: активный - как
+// writeConfig, остальные - прямой записью в их файл.
+func (a *App) writeProfileConfig(profile, text string) error {
+	if profile == "" || profile == a.settings.Get().ActiveProfile {
+		return a.writeConfig(text)
+	}
+	tmp := a.profilePath(profile) + ".tmp"
+	if err := os.WriteFile(tmp, []byte(text), 0o644); err != nil {
+		return err
+	}
+	return os.Rename(tmp, a.profilePath(profile))
+}
+
 // writeConfig сохраняет текст в активный профиль (создаёт его, если профилей нет).
 func (a *App) writeConfig(text string) error {
 	path := a.configPath()

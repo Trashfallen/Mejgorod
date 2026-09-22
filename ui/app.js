@@ -441,18 +441,22 @@ setInterval(() => {
   if (page === 'servers' || page === 'home') loadServers();
 }, 5000);
 
-// ---------- доска «Через VPN / Напрямую» ----------
-let BOARD = null;
+// ---------- доска «Через VPN / Напрямую» (по всем профилям) ----------
+let BOARDS = null;
 let dragInfo = null;
 const ICON_GLOBE = '<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18"/>';
 const ICON_APP = '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/>';
 const ICON_LOCK = '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>';
 const ICON_SWAP = '<path d="M4 8h14l-4-4"/><path d="M20 16H6l4 4"/>';
+const ICON_PLUS = '<path d="M12 5v14"/><path d="M5 12h14"/>';
+const ICON_CHEV = '<path d="m6 9 6 6 6-6"/>';
+const ICON_INFO = '<circle cx="12" cy="12" r="9"/><path d="M12 16v-5"/><path d="M12 8h.01"/>';
 const OPT_TEXT = { DIRECT: 'Напрямую', PASS: 'По общим правилам', REJECT: 'Блокировать', 'REJECT-DROP': 'Блокировать молча' };
+const boardCollapsed = new Set(); // свёрнутые профили; по умолчанию все развёрнуты
 
 async function loadBoard() {
   if (dragInfo) return; // не перерисовываем посреди перетаскивания
-  try { BOARD = await api('/board'); } catch (e) { BOARD = null; }
+  try { BOARDS = (await api('/board/all')).boards; } catch (e) { BOARDS = null; }
   renderBoard();
   if ($('#grpModal').open) renderGroupModal();
 }
@@ -468,37 +472,138 @@ function groupSub(g) {
 
 function renderBoard() {
   const empty = $('#boardEmpty');
-  const noGroups = BOARD && !BOARD.groups.length && !BOARD.items.length;
-  empty.hidden = !!BOARD && !noGroups;
-  $('#board').hidden = !BOARD;
-  if (!BOARD) { empty.textContent = 'Не удалось прочитать конфиг'; return; }
-  if (noGroups) empty.textContent = 'В конфиге нет групп сервисов. Добавьте сайты и программы кнопкой «+» или выберите шаблон на вкладке «Конфиг».';
-  $('#boardHint').textContent = 'Перетащите сервис в нужную колонку или нажмите на него, чтобы выбрать сервер. «+» добавляет свой сайт или программу.' +
-    (BOARD.running ? '' : ' VPN выключен: выбор сохранится и применится при подключении.');
+  const wrap = $('#profBoards');
+  const none = !BOARDS || !BOARDS.length;
+  empty.hidden = !none;
+  wrap.hidden = none;
+  if (!BOARDS) { empty.textContent = 'Не удалось прочитать профили'; return; }
+  if (none) { empty.textContent = 'Профилей нет: выберите шаблон на вкладке «Конфиг».'; return; }
+  $('#boardHint').textContent = 'Перетащите сервис в нужную колонку или нажмите на него, чтобы выбрать сервер. «+» добавляет свой сайт или программу. ' +
+    'Показаны все профили сразу, менять можно любой, переключать активный не нужно.';
 
   const q = $('#groupSearch').value.trim().toLowerCase();
-  const svc = { vpn: [], direct: [] };
-  const own = { vpn: [], direct: [] };
-  for (const g of BOARD.groups) {
-    if (!q || g.name.toLowerCase().includes(q)) svc[colOf(g.route)].push(groupCard(g));
-  }
-  for (const it of BOARD.items) {
-    if (!q || it.label.toLowerCase().includes(q)) own[colOf(it.route)].push(itemCard(it));
-  }
-  for (const r of ['vpn', 'direct']) {
-    const kids = [...svc[r]];
-    if (own[r].length) kids.push(h('div', { class: 'col-sub' }, 'Свои сайты и программы'), ...own[r]);
-    if (!kids.length) {
-      kids.push(h('div', { class: 'col-empty' }, q ? 'Ничего не найдено' :
-        r === 'vpn' ? 'Перетащите сюда то, что должно идти через VPN' : 'Перетащите сюда то, что должно идти напрямую'));
-    }
-    $(r === 'vpn' ? '#colVpn' : '#colDirect').replaceChildren(...kids);
-    const n = svc[r].length + own[r].length;
-    $(r === 'vpn' ? '#cntVpn' : '#cntDirect').textContent = n ? String(n) : '';
-  }
+  const match = (pb) => !q || pb.profile.toLowerCase().includes(q) ||
+    pb.groups.some((g) => g.name.toLowerCase().includes(q)) || pb.items.some((it) => it.label.toLowerCase().includes(q));
+  const sections = BOARDS.filter(match).map((pb) => profileSection(pb, q));
+  wrap.replaceChildren(...(sections.length ? sections : [h('div', { class: 'col-empty' }, 'Ничего не найдено')]));
 }
 
-function groupCard(g) {
+function profileSection(pb, q) {
+  const svc = { vpn: [], direct: [] };
+  const own = { vpn: [], direct: [] };
+  for (const g of pb.groups) {
+    if (!q || g.name.toLowerCase().includes(q)) svc[colOf(g.route)].push(groupCard(g, pb));
+  }
+  for (const it of pb.items) {
+    if (!q || it.label.toLowerCase().includes(q)) own[colOf(it.route)].push(itemCard(it, pb));
+  }
+  const total = pb.groups.length + pb.items.length;
+  const chev = svg(ICON_CHEV);
+  chev.setAttribute('class', 'chev');
+  const det = h('details', { class: 'prof-board' + (pb.active ? ' active' : ''), open: boardCollapsed.has(pb.profile) ? null : true },
+    h('summary', {},
+      h('span', { class: 'radio' + (pb.active ? ' on' : '') }),
+      h('b', {}, pb.profile),
+      pb.active ? h('span', { class: 'badge now' }, 'активный') : null,
+      h('span', { class: 'count' }, total ? String(total) : ''),
+      chev),
+    buildColumns(pb, svc, own, q));
+  det.addEventListener('toggle', () => {
+    if (det.open) boardCollapsed.delete(pb.profile); else boardCollapsed.add(pb.profile);
+  });
+  return det;
+}
+
+function buildColumns(pb, svc, own, q) {
+  const col = (route) => {
+    const kids = [...svc[route]];
+    if (own[route].length) kids.push(h('div', { class: 'col-sub' }, 'Свои сайты и программы'), ...own[route]);
+    const n = svc[route].length + own[route].length;
+    if (!kids.length) {
+      kids.push(h('div', { class: 'col-empty' }, q ? 'Ничего не найдено' :
+        route === 'vpn' ? 'Перетащите сюда то, что должно идти через VPN' : 'Перетащите сюда то, что должно идти напрямую'));
+    }
+    const colEl = h('div', { class: 'col', 'data-route': route },
+      h('div', { class: 'col-head' },
+        h('span', { class: 'col-dot' }), h('b', {}, route === 'vpn' ? 'Через VPN' : 'Напрямую'), h('span', { class: 'count' }, n ? String(n) : ''),
+        h('button', {
+          class: 'icon-btn', title: 'Добавить сайт или программу ' + (route === 'vpn' ? 'через VPN' : 'напрямую'),
+          onclick: () => openAdd(pb.profile, route),
+        }, svg(ICON_PLUS))),
+      h('div', { class: 'col-body' }, ...kids));
+    wireColumn(colEl, pb.profile, route);
+    return colEl;
+  };
+  return h('div', { class: 'board' }, col('vpn'), col('direct'));
+}
+
+function wireColumn(colEl, profile, route) {
+  colEl.addEventListener('dragover', (e) => {
+    if (!dragInfo || dragInfo.profile !== profile || dragInfo.from === route) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    colEl.classList.add('drop');
+  });
+  colEl.addEventListener('dragleave', (e) => { if (!colEl.contains(e.relatedTarget)) colEl.classList.remove('drop'); });
+  colEl.addEventListener('drop', (e) => {
+    e.preventDefault();
+    colEl.classList.remove('drop');
+    const info = dragInfo;
+    dragInfo = null;
+    if (!info || info.profile !== profile || info.from === route) return;
+    if (info.type === 'group') moveGroup(info.g, profile, route);
+    else moveItem(info.it, profile, route);
+  });
+}
+
+// ---------- иконка «сайты и домены» на карточке группы ----------
+const sourceCache = new Map(); // "профиль|группа" -> список источников
+const srcTip = document.body.appendChild(h('div', { class: 'src-tip' }));
+srcTip.hidden = true;
+
+function positionSrcTip(el) {
+  const r = el.getBoundingClientRect();
+  srcTip.style.left = Math.max(8, Math.min(r.left, window.innerWidth - 340)) + 'px';
+  srcTip.style.top = (r.bottom + 6) + 'px';
+}
+
+function renderSources(list) {
+  if (!list.length) return h('div', { class: 'muted small' }, 'Не нашли, из-за каких правил трафик попадает в эту группу');
+  return h('div', {}, ...list.map((s) => {
+    const sample = s.sample || [];
+    if (s.kind === 'domain') return h('div', { class: 'src-row' }, h('b', {}, 'Домены'), h('div', { class: 'sample' }, sample.join('  ')));
+    const more = s.count - sample.length;
+    return h('div', { class: 'src-row' },
+      h('b', {}, (s.kind === 'geoip' ? 'IP-список ' : 'Список ') + s.name + (s.count ? ' · ' + s.count : '')),
+      sample.length ? h('div', { class: 'sample' }, sample.join('  ') + (more > 0 ? '  и ещё ' + more : '')) : (s.count ? null : h('div', { class: 'muted small' }, 'списка нет')));
+  }));
+}
+
+function showSrcTip(el, profile, name) {
+  const key = profile + '|' + name;
+  srcTip.hidden = false;
+  positionSrcTip(el);
+  if (sourceCache.has(key)) {
+    srcTip.replaceChildren(renderSources(sourceCache.get(key)));
+    positionSrcTip(el);
+    return;
+  }
+  srcTip.replaceChildren(h('div', { class: 'muted small' }, 'Смотрю...'));
+  api('/board/group/' + encodeURIComponent(name) + '/sites?profile=' + encodeURIComponent(profile)).then((d) => {
+    sourceCache.set(key, d.sources);
+    if (!srcTip.hidden) { srcTip.replaceChildren(renderSources(d.sources)); positionSrcTip(el); }
+  }).catch((e) => { if (!srcTip.hidden) srcTip.replaceChildren(h('div', { class: 'muted small' }, 'Не удалось узнать: ' + e.message)); });
+}
+function hideSrcTip() { srcTip.hidden = true; }
+
+function infoIcon(profile, name) {
+  const btn = h('button', { class: 'icon-btn ghost', title: 'Какие сайты и домены входят в группу', onclick: (e) => e.stopPropagation() }, svg(ICON_INFO));
+  btn.addEventListener('mouseenter', () => showSrcTip(btn, profile, name));
+  btn.addEventListener('mouseleave', hideSrcTip);
+  return btn;
+}
+
+function groupCard(g, pb) {
   const to = colOf(g.route) === 'vpn' ? 'direct' : 'vpn';
   const canMove = !!(to === 'vpn' ? g.vpn : g.direct);
   const el = h('div', {
@@ -509,22 +614,23 @@ function groupCard(g) {
   },
   groupIcon(g),
   h('div', { class: 'btext' }, h('b', {}, g.name), h('span', {}, groupSub(g))),
+  infoIcon(pb.profile, g.name),
   canMove
-    ? h('button', { class: 'icon-btn', title: to === 'vpn' ? 'Через VPN' : 'Напрямую', onclick: (e) => { e.stopPropagation(); moveGroup(g, to); } }, svg(ICON_SWAP))
+    ? h('button', { class: 'icon-btn', title: to === 'vpn' ? 'Через VPN' : 'Напрямую', onclick: (e) => { e.stopPropagation(); moveGroup(g, pb.profile, to); } }, svg(ICON_SWAP))
     : h('span', { class: 'bicon lock' }, svg(ICON_LOCK)));
-  el.addEventListener('click', () => openGroupModal(g.name));
-  if (canMove) dragSource(el, { type: 'group', g, from: colOf(g.route) });
+  el.addEventListener('click', () => openGroupModal(pb.profile, g.name));
+  if (canMove) dragSource(el, { type: 'group', g, from: colOf(g.route), profile: pb.profile });
   return el;
 }
 
-function itemCard(it) {
+function itemCard(it, pb) {
   const to = it.route === 'vpn' ? 'direct' : 'vpn';
   const el = h('div', { class: 'bcard custom', draggable: 'true', title: 'Перетащите в другую колонку' },
     h('span', { class: 'bicon' }, svg(it.kind === 'app' ? ICON_APP : ICON_GLOBE)),
     h('div', { class: 'btext' }, h('b', {}, it.label), h('span', {}, it.detail)),
-    h('button', { class: 'icon-btn', title: to === 'vpn' ? 'Через VPN' : 'Напрямую', onclick: () => moveItem(it, to) }, svg(ICON_SWAP)),
-    h('button', { class: 'icon-btn danger', title: 'Удалить', onclick: () => deleteItem(it) }, svg(ICON_TRASH)));
-  dragSource(el, { type: 'item', it, from: it.route });
+    h('button', { class: 'icon-btn', title: to === 'vpn' ? 'Через VPN' : 'Напрямую', onclick: () => moveItem(it, pb.profile, to) }, svg(ICON_SWAP)),
+    h('button', { class: 'icon-btn danger', title: 'Удалить', onclick: () => deleteItem(it, pb.profile) }, svg(ICON_TRASH)));
+  dragSource(el, { type: 'item', it, from: it.route, profile: pb.profile });
   return el;
 }
 
@@ -542,89 +648,75 @@ function dragSource(el, info) {
   });
 }
 
-$$('.col').forEach((col) => {
-  const route = col.dataset.route;
-  col.addEventListener('dragover', (e) => {
-    if (!dragInfo || dragInfo.from === route) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    col.classList.add('drop');
-  });
-  col.addEventListener('dragleave', (e) => { if (!col.contains(e.relatedTarget)) col.classList.remove('drop'); });
-  col.addEventListener('drop', (e) => {
-    e.preventDefault();
-    col.classList.remove('drop');
-    const info = dragInfo;
-    dragInfo = null;
-    if (!info || info.from === route) return;
-    if (info.type === 'group') moveGroup(info.g, route);
-    else moveItem(info.it, route);
-  });
-});
 $('#groupSearch').addEventListener('input', renderBoard);
 
-async function moveGroup(g, route) {
+async function moveGroup(g, profile, route) {
   const option = route === 'vpn' ? g.vpn : g.direct;
   if (!option) return toast('У группы «' + g.name + '» нет варианта ' + (route === 'vpn' ? 'через VPN' : '«напрямую»'), 'warn');
-  await chooseGroupOption(g.name, option);
+  await chooseGroupOption(profile, g.name, option);
 }
 
-async function chooseGroupOption(name, option) {
+async function chooseGroupOption(profile, name, option) {
   try {
-    BOARD = await api('/board/group', { method: 'PUT', body: { name, option } });
+    BOARDS = (await api('/board/group', { method: 'PUT', body: { profile, name, option } })).boards;
     renderBoard();
     if ($('#grpModal').open) renderGroupModal();
-    loadGroups();
+    if (profile === (PROF && PROF.active)) loadGroups();
   } catch (e) { toast(e.message, 'err'); }
 }
 
-// свои сайты и программы меняют конфиг: редактор не должен держать старую копию
-function configLocked() {
-  if (!cfgDirty()) return false;
+// свои сайты и программы меняют конфиг: редактор не должен держать старую копию активного профиля
+function configLocked(profile) {
+  if (profile !== (PROF && PROF.active) || !cfgDirty()) return false;
   toast('Сначала сохраните или отмените изменения на вкладке «Конфиг»', 'warn');
   return true;
 }
 
 function afterDeskChange(d, msg) {
-  BOARD = d.board;
+  BOARDS = d.boards;
   renderBoard();
-  loadConfig();
+  if (addState.profile === (PROF && PROF.active)) loadConfig();
   toast(msg + (d.restarted ? '. Переподключаюсь' : ''), 'ok');
 }
 
-async function moveItem(it, route) {
-  if (configLocked()) return;
+async function moveItem(it, profile, route) {
+  if (configLocked(profile)) return;
   try {
-    const d = await api('/board/items/' + encodeURIComponent(it.id), { method: 'PUT', body: { route } });
+    const d = await api('/board/items/' + encodeURIComponent(it.id), { method: 'PUT', body: { profile, route } });
     afterDeskChange(d, it.label + (route === 'vpn' ? ': через VPN' : ': напрямую'));
   } catch (e) { toast(e.message, 'err'); }
 }
 
-async function deleteItem(it) {
-  if (configLocked()) return;
+async function deleteItem(it, profile) {
+  if (configLocked(profile)) return;
   if (!confirm('Убрать «' + it.label + '» из правил?')) return;
   try {
-    const d = await api('/board/items/' + encodeURIComponent(it.id), { method: 'DELETE' });
+    const d = await api('/board/items/' + encodeURIComponent(it.id) + '?profile=' + encodeURIComponent(profile), { method: 'DELETE' });
     afterDeskChange(d, 'Удалено: ' + it.label);
   } catch (e) { toast(e.message, 'err'); }
 }
 
 // ---------- выбор сервера в группе ----------
+let grpProfile = null;
 let grpName = null;
-function openGroupModal(name) {
+function openGroupModal(profile, name) {
+  grpProfile = profile;
   grpName = name;
   renderGroupModal();
   $('#grpModal').showModal();
 }
 function renderGroupModal() {
-  const g = BOARD && BOARD.groups.find((x) => x.name === grpName);
+  const pb = BOARDS && BOARDS.find((x) => x.profile === grpProfile);
+  const g = pb && pb.groups.find((x) => x.name === grpName);
   if (!g) { $('#grpModal').close(); return; }
-  $('#grpTitle').textContent = g.name;
-  $('#grpNote').textContent = BOARD.running ? 'Куда идёт трафик этой группы:' : 'VPN выключен: выбор применится при подключении.';
+  $('#grpTitle').textContent = g.name + ' · ' + grpProfile;
+  $('#grpNote').textContent = pb.running ? 'Куда идёт трафик этой группы:'
+    : pb.active ? 'VPN выключен: выбор применится при подключении.'
+    : 'Профиль не активен: выбор применится, когда он станет активным и подключится.';
   $('#grpOpts').replaceChildren(...g.options.map((o) =>
-    h('button', { class: 'opt' + (o === g.now ? ' on' : ''), title: o, onclick: () => chooseGroupOption(g.name, o) },
+    h('button', { class: 'opt' + (o === g.now ? ' on' : ''), title: o, onclick: () => chooseGroupOption(grpProfile, g.name, o) },
       h('span', { class: 'oname' }, OPT_TEXT[o] || o), delayEl(o))));
-  $('#grpPing').disabled = !BOARD.running;
+  $('#grpPing').disabled = !pb.running;
 }
 $('#grpClose').addEventListener('click', () => $('#grpModal').close());
 $('#grpPing').addEventListener('click', async (e) => {
@@ -635,13 +727,11 @@ $('#grpPing').addEventListener('click', async (e) => {
 
 // ---------- «+»: свой сайт или программа ----------
 const addModal = $('#addModal');
-let addState = { kind: 'site', route: 'vpn', found: null, foundFor: '', procs: null };
+let addState = { profile: '', kind: 'site', route: 'vpn', found: null, foundFor: '', procs: null };
 
-$$('[data-add]').forEach((b) => b.addEventListener('click', () => openAdd(b.dataset.add)));
-
-function openAdd(route) {
-  if (configLocked()) return;
-  addState = { kind: 'site', route, found: null, foundFor: '', procs: null };
+function openAdd(profile, route) {
+  if (configLocked(profile)) return;
+  addState = { profile, kind: 'site', route, found: null, foundFor: '', procs: null };
   $('#siteInput').value = '';
   $('#siteExtra').value = '';
   $('#appInput').value = '';
@@ -751,7 +841,7 @@ $('#addConfirm').addEventListener('click', async (e) => {
     const gs = $('#useGeosite');
     const gi = $('#useGeoip');
     body = {
-      kind: 'site', value: f.domain, route: addState.route,
+      profile: addState.profile, kind: 'site', value: f.domain, route: addState.route,
       domains: $('#siteExtra').value.split(/[\s,;]+/).filter(Boolean),
       geosite: f.geosite && gs && gs.checked ? f.geosite.name : '',
       geoip: f.geoip && gi && gi.checked ? f.geoip.name : '',
@@ -759,7 +849,7 @@ $('#addConfirm').addEventListener('click', async (e) => {
   } else {
     const v = $('#appInput').value.trim();
     if (!v) return setAddResult('Выберите программу из списка или впишите имя .exe', true);
-    body = { kind: 'app', value: v, route: addState.route };
+    body = { profile: addState.profile, kind: 'app', value: v, route: addState.route };
   }
   busy(btn, true);
   setAddResult('Проверяю и сохраняю...');
