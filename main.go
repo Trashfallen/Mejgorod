@@ -99,7 +99,7 @@ func main() {
 	}
 	if !app.settings.Get().NoUpdateCheck {
 		go func() {
-			time.Sleep(3 * time.Second)
+			time.Sleep(time.Second)
 			_ = app.updater.Check(context.Background())
 			if u := app.updater.State(); u.Available {
 				app.logs.Add("app", "info", "Доступна новая версия "+u.Version)

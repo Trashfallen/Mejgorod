@@ -430,6 +430,22 @@
   </div>
 </dialog>
 
+<dialog class="update-modal" id="updModal">
+  <div class="upd-card">
+    <div class="upd-icon"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg></div>
+    <h2 id="updTitle">Есть обновление</h2>
+    <p class="upd-ver">Установлена <span id="updFrom"></span>, доступна <b id="updTo"></b></p>
+    <div class="upd-notes" id="updNotes"></div>
+    <div class="progress" id="updProgress" hidden><div></div></div>
+    <p class="upd-msg" id="updMsg"></p>
+    <p class="upd-q" id="updQ">Обновить?</p>
+    <div class="upd-actions" id="updActions">
+      <button class="btn" id="updNo">Нет, не сейчас</button>
+      <button class="btn primary" id="updYes">Да, обновить</button>
+    </div>
+  </div>
+</dialog>
+
 <dialog class="modal modal-small" id="profModal">
   <div class="modal-head">
     <h3>Профили</h3>

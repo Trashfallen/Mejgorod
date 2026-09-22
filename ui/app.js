@@ -188,6 +188,7 @@ function renderState() {
   $('#dataDir').textContent = S.app.dataDir;
   renderCoreBlock();
   renderAppUpdate();
+  renderUpdatePrompt();
 
   if (st !== prevStatus) {
     if (page === 'groups') { loadGroups(); loadBoard(); }
@@ -232,10 +233,49 @@ function renderNotice() {
   n.hidden = !n.childElementCount;
 }
 
+// Вопрос «Обновить? Да / Нет» на всё окно: при запуске, как только проверка
+// нашла новую версию. «Нет» - больше не спрашиваем до следующего запуска.
+let updDismissed = (() => { try { return sessionStorage.getItem('updDismissed') || ''; } catch (e) { return ''; } })();
+function renderUpdatePrompt() {
+  const u = S.update;
+  const m = $('#updModal');
+  const want = u.busy || (u.available && u.version !== updDismissed);
+  if (!want) { if (m.open) m.close(); return; }
+  $('#updFrom').textContent = S.app.version;
+  $('#updTo').textContent = u.version;
+  const notes = $('#updNotes');
+  if (notes.textContent !== (u.notes || '')) notes.textContent = u.notes || '';
+  const bar = $('#updProgress');
+  bar.hidden = !u.busy;
+  bar.classList.toggle('indet', u.busy && u.progress < 0);
+  bar.firstElementChild.style.width = u.progress >= 0 ? Math.round(u.progress * 100) + '%' : '';
+  const msg = $('#updMsg');
+  const pct = u.busy && u.progress >= 0 && u.progress < 1 ? ' ' + Math.round(u.progress * 100) + '%' : '';
+  msg.textContent = u.busy ? (u.message || 'Обновляю') + pct : u.error ? 'Не получилось: ' + u.error : '';
+  msg.classList.toggle('err', !u.busy && !!u.error);
+  $('#updTitle').textContent = u.busy ? 'Обновляю MihomoDesk' : 'Есть обновление';
+  $('#updQ').hidden = u.busy;
+  $('#updActions').hidden = u.busy;
+  $('#updYes').textContent = u.error ? 'Повторить' : 'Да, обновить';
+  if (!m.open) m.showModal();
+}
+function dismissUpdate() {
+  updDismissed = S.update.version;
+  try { sessionStorage.setItem('updDismissed', updDismissed); } catch (e) { /* до перезагрузки окна */ }
+  $('#updModal').close();
+}
+$('#updNo').addEventListener('click', dismissUpdate);
+$('#updYes').addEventListener('click', startAppUpdate);
+$('#updModal').addEventListener('cancel', (e) => { e.preventDefault(); if (!S.update.busy) dismissUpdate(); });
+
 async function startAppUpdate() {
   if (cfgDirty() && !confirm('В редакторе конфига есть несохранённые изменения, они пропадут при перезапуске. Обновить?')) return;
-  try { await api('/app/update', { method: 'POST' }); toast('Скачиваю обновление', 'ok'); }
-  catch (e) { toast(e.message, 'err'); }
+  try {
+    await api('/app/update', { method: 'POST' });
+    S.update.busy = true;
+    S.update.message = 'Скачиваю обновление';
+    renderUpdatePrompt();
+  } catch (e) { toast(e.message, 'err'); }
 }
 
 function renderAppUpdate() {
