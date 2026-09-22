@@ -1,120 +1,104 @@
-// Package icon рисует значок программы (кнопка питания на скруглённом квадрате)
-// без внешних файлов: для exe, трея и favicon окна.
+// Package icon - значок программы из картинок в art/: человек с флагом на холме.
+// Цвет флага показывает состояние: зелёный - подключено, белый - отключено,
+// красный - ошибка. Картинки 256x256, мелкие размеры (трей) получаются
+// уменьшением с усреднением по площади.
 package icon
 
 import (
 	"bytes"
+	_ "embed"
 	"encoding/binary"
 	"image"
 	"image/color"
+	"image/draw"
 	"image/png"
 	"math"
+	"sync"
 )
 
-type Palette struct{ Top, Bottom color.NRGBA }
-
-var (
-	On  = Palette{color.NRGBA{0x2d, 0xd4, 0xbf, 0xff}, color.NRGBA{0x0f, 0x76, 0x6e, 0xff}}
-	Off = Palette{color.NRGBA{0xa1, 0xa8, 0xb3, 0xff}, color.NRGBA{0x4b, 0x52, 0x5e, 0xff}}
-	Err = Palette{color.NRGBA{0xf8, 0x71, 0x71, 0xff}, color.NRGBA{0xb9, 0x1c, 0x1c, 0xff}}
-)
+// State - какую картинку взять.
+type State int
 
 const (
-	gap   = 38 * math.Pi / 180 // половина разрыва кольца сверху
-	ringR = 0.25
-	cx    = 0.5
-	cy    = 0.54
+	On  State = iota // подключено: зелёный флаг
+	Off              // отключено: белый флаг
+	Err              // ошибка: красный флаг
 )
 
-// Render рисует значок size x size с 4x4 суперсэмплингом.
-func Render(size int, p Palette) *image.NRGBA {
-	img := image.NewNRGBA(image.Rect(0, 0, size, size))
-	s := float64(size)
-	// на мелких размерах линии толще, иначе значок в трее расплывается
-	t := 0.085
-	if size <= 24 {
-		t = 0.11
-	}
-	const ss = 4
-	for py := 0; py < size; py++ {
-		for px := 0; px < size; px++ {
-			var bg, fg float64
-			for sy := 0; sy < ss; sy++ {
-				for sx := 0; sx < ss; sx++ {
-					x := (float64(px) + (float64(sx)+0.5)/ss) / s
-					y := (float64(py) + (float64(sy)+0.5)/ss) / s
-					if !inRoundRect(x, y, 0.03, 0.03, 0.97, 0.97, 0.22) {
-						continue
-					}
-					bg++
-					if inPower(x, y, t) {
-						fg++
-					}
+var (
+	//go:embed art/connected.png
+	connectedPNG []byte
+	//go:embed art/disconnected.png
+	disconnectedPNG []byte
+	//go:embed art/error.png
+	errorPNG []byte
+
+	srcOnce sync.Once
+	src     [3]*image.NRGBA
+)
+
+func source(s State) *image.NRGBA {
+	srcOnce.Do(func() {
+		for i, b := range [][]byte{connectedPNG, disconnectedPNG, errorPNG} {
+			img, err := png.Decode(bytes.NewReader(b))
+			if err != nil {
+				panic("icon: " + err.Error())
+			}
+			n := image.NewNRGBA(img.Bounds())
+			draw.Draw(n, n.Bounds(), img, img.Bounds().Min, draw.Src)
+			src[i] = n
+		}
+	})
+	return src[s]
+}
+
+// Render - значок size x size.
+func Render(size int, s State) *image.NRGBA {
+	return scale(source(s), size)
+}
+
+// scale уменьшает картинку усреднением по площади с учётом прозрачности:
+// так пиксель-арт в 16 px остаётся узнаваемым, а края не темнеют.
+func scale(img *image.NRGBA, size int) *image.NRGBA {
+	sb := img.Bounds()
+	dst := image.NewNRGBA(image.Rect(0, 0, size, size))
+	fx, fy := float64(sb.Dx())/float64(size), float64(sb.Dy())/float64(size)
+	for dy := 0; dy < size; dy++ {
+		y0, y1 := float64(dy)*fy, float64(dy+1)*fy
+		for dx := 0; dx < size; dx++ {
+			x0, x1 := float64(dx)*fx, float64(dx+1)*fx
+			var r, g, b, a, w float64
+			for sy := int(y0); sy < int(math.Ceil(y1)) && sy < sb.Dy(); sy++ {
+				wy := math.Min(y1, float64(sy+1)) - math.Max(y0, float64(sy))
+				for sx := int(x0); sx < int(math.Ceil(x1)) && sx < sb.Dx(); sx++ {
+					wx := math.Min(x1, float64(sx+1)) - math.Max(x0, float64(sx))
+					c := img.NRGBAAt(sb.Min.X+sx, sb.Min.Y+sy)
+					k, al := wx*wy, float64(c.A)/255
+					r += float64(c.R) * al * k
+					g += float64(c.G) * al * k
+					b += float64(c.B) * al * k
+					a += al * k
+					w += k
 				}
 			}
-			if bg == 0 {
-				continue
+			if a > 0 {
+				dst.SetNRGBA(dx, dy, color.NRGBA{uint8(r/a + .5), uint8(g/a + .5), uint8(b/a + .5), uint8(a/w*255 + .5)})
 			}
-			a := bg / (ss * ss)
-			f := fg / bg
-			k := float64(py) / s
-			base := [3]float64{
-				lerp(float64(p.Top.R), float64(p.Bottom.R), k),
-				lerp(float64(p.Top.G), float64(p.Bottom.G), k),
-				lerp(float64(p.Top.B), float64(p.Bottom.B), k),
-			}
-			img.SetNRGBA(px, py, color.NRGBA{
-				R: uint8(base[0]*(1-f) + 255*f + 0.5),
-				G: uint8(base[1]*(1-f) + 255*f + 0.5),
-				B: uint8(base[2]*(1-f) + 255*f + 0.5),
-				A: uint8(a*255 + 0.5),
-			})
 		}
 	}
-	return img
-}
-
-func lerp(a, b, k float64) float64 { return a + (b-a)*k }
-
-func inRoundRect(x, y, x0, y0, x1, y1, r float64) bool {
-	if x < x0 || x > x1 || y < y0 || y > y1 {
-		return false
-	}
-	dx := math.Max(math.Max(x0+r-x, 0), x-(x1-r))
-	dy := math.Max(math.Max(y0+r-y, 0), y-(y1-r))
-	return dx*dx+dy*dy <= r*r
-}
-
-func inPower(x, y, t float64) bool {
-	h := t / 2
-	// кольцо с разрывом сверху
-	d := math.Hypot(x-cx, y-cy)
-	if math.Abs(d-ringR) <= h && math.Abs(math.Atan2(x-cx, cy-y)) > gap {
-		return true
-	}
-	// скруглённые концы кольца
-	ex, ey := ringR*math.Sin(gap), cy-ringR*math.Cos(gap)
-	if math.Hypot(x-(cx-ex), y-ey) <= h || math.Hypot(x-(cx+ex), y-ey) <= h {
-		return true
-	}
-	// вертикальная черта со скруглёнными концами
-	top, bottom := cy-ringR-0.045, cy-0.04
-	if y >= top && y <= bottom && math.Abs(x-cx) <= h {
-		return true
-	}
-	return math.Hypot(x-cx, y-top) <= h || math.Hypot(x-cx, y-bottom) <= h
+	return dst
 }
 
 // PNG кодирует значок в PNG.
-func PNG(size int, p Palette) []byte {
+func PNG(size int, s State) []byte {
 	var b bytes.Buffer
-	_ = png.Encode(&b, Render(size, p))
+	_ = png.Encode(&b, Render(size, s))
 	return b.Bytes()
 }
 
 // ICO собирает .ico: мелкие размеры как 32-битные DIB (их надёжно понимает
 // LoadImage для трея), 256 - как PNG.
-func ICO(p Palette, sizes ...int) []byte {
+func ICO(s State, sizes ...int) []byte {
 	type entry struct {
 		size int
 		data []byte
@@ -122,9 +106,9 @@ func ICO(p Palette, sizes ...int) []byte {
 	var entries []entry
 	for _, sz := range sizes {
 		if sz >= 256 {
-			entries = append(entries, entry{sz, PNG(sz, p)})
+			entries = append(entries, entry{sz, PNG(sz, s)})
 		} else {
-			entries = append(entries, entry{sz, dib(Render(sz, p))})
+			entries = append(entries, entry{sz, dib(Render(sz, s))})
 		}
 	}
 	var b bytes.Buffer
