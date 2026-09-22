@@ -147,11 +147,16 @@ func (u *Updater) Check(ctx context.Context) error {
 			asset, size = a.URL, a.Size
 		}
 	}
-	avail := asset != "" && newerVersion(rel.Tag, appVersion)
+	newer := newerVersion(rel.Tag, appVersion)
+	avail := asset != "" && newer
 	u.mu.Lock()
 	u.asset, u.size = asset, size
 	u.st.Checked, u.st.Available, u.st.Version, u.st.Notes, u.st.URL = true, avail, rel.Tag, rel.Body, rel.Page
-	if !avail {
+	switch {
+	case newer && asset == "":
+		// релиз есть, а файл к нему не прикрепили
+		u.st.Message = "В релизе " + rel.Tag + " нет файла " + updateAsset
+	case !avail:
 		u.st.Message = "Установлена последняя версия"
 	}
 	u.mu.Unlock()
