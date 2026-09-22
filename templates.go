@@ -38,6 +38,13 @@ var builtinTemplates = []Template{
 		Builtin: true,
 		file:    "builtin-templates/proxy-all.yaml",
 	},
+	{
+		ID:      "builtin:all-vpn",
+		Name:    "Всё через VPN, без исключений",
+		Desc:    "Одна группа PROXY, MATCH,PROXY. Ни блокировки рекламы, ни российских сайтов напрямую - буквально весь трафик через VPN.",
+		Builtin: true,
+		file:    "builtin-templates/all-vpn.yaml",
+	},
 }
 
 func (a *App) templatesDir() string {

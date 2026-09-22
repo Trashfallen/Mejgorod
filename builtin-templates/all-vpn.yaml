@@ -1,0 +1,48 @@
+#######################################################################################################
+# Описание:
+# Весь трафик идёт через VPN, без исключений: ни блокировки рекламы, ни российских
+# сайтов напрямую - только одна группа PROXY и MATCH,PROXY.
+#######################################################################################################
+
+# /////////////////////////////////////////////////////////////////////////////////////////////////////
+# Добавьте свое подключение через XKeen UI или https://zxc-rv.github.io/XKeen-UI/Outbound_Generator
+# /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+log-level: silent
+allow-lan: true
+redir-port: 5000
+tproxy-port: 5001
+routing-mark: 255
+find-process-mode: off
+unified-delay: true
+external-controller: 0.0.0.0:9090
+external-ui: zashboard
+external-ui-url: https://github.com/Zephyruso/zashboard/releases/latest/download/dist.zip
+
+proxy-groups:
+  - name: PROXY
+    type: select
+    icon: https://cdn.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Global.png
+    include-all: true
+    proxies: [Fallback, Fastest]
+
+  - name: Fallback
+    type: fallback
+    url: https://www.gstatic.com/generate_204
+    icon: https://cdn.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Available.png
+    interval: 300
+    max-failed-times: 3
+    hidden: true
+    include-all: true
+
+  - name: Fastest
+    type: url-test
+    url: https://www.gstatic.com/generate_204
+    icon: https://cdn.jsdelivr.net/gh/Koolson/Qure@master/IconSet/Color/Auto.png
+    interval: 300
+    max-failed-times: 3
+    hidden: true
+    include-all: true
+
+rules:
+  - MATCH,PROXY
