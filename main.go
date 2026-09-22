@@ -19,7 +19,7 @@ import (
 const appName = "MihomoDesk"
 
 // appVersion - var, чтобы проверять обновление сборкой с другой версией (-X main.appVersion).
-var appVersion = "1.2.0"
+var appVersion = "0.1.2"
 
 func main() {
 	defer func() {

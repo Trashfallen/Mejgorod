@@ -110,10 +110,11 @@ go test -run TestAdaptRealConfig -v .
 
 The app updates itself from the latest release of this repository:
 
-1. Bump `appVersion` in `main.go` and the version in `build.cmd`, build with `build.cmd`.
-2. Create a release with a tag like `v1.2.0` and attach `dist\MihomoDesk.exe`. The asset must be named exactly `MihomoDesk.exe`.
+1. Run `release.cmd 0.1.3` (the next version). It builds `release\MihomoDesk.exe` and `release\MihomoDesk-0.1.3.zip` (exe + mihomo core + a short guide).
+2. Create a release with the tag `v0.1.3` and attach both files. The exe must be named exactly `MihomoDesk.exe`: the app downloads it when updating. The zip is for people installing from scratch.
+3. Bump the default version in `main.go` and `build.cmd`.
 
-Apps with an older version will offer the update on the next start.
+Apps with an older version offer the update on start. The version only goes up: a release with a lower number is never offered.
 
 ## Credits
 
