@@ -267,6 +267,8 @@ func (a *App) installAppUpdate() {
 		return
 	}
 
+	// переименование в каноничное имя (если copy ещё называлась MihomoDesk.exe)
+	// делает уже новый процесс при старте - см. renameToCanonical в main.go.
 	args := []string{"--after-update", strconv.Itoa(os.Getpid()), "--token", a.token, "--no-window"}
 	if st := a.core.Status(); st == stRunning || st == stStarting {
 		args = append(args, "--connect")

@@ -16,6 +16,23 @@ import (
 )
 
 const taskName = "Mejgorod"
+const taskNameOld = "MihomoDesk" // имя задачи до переименования программы
+
+// migrateAutostartTask - если автозапуск стоял под именем задачи от
+// MihomoDesk (до переименования), переносит его на новое имя задачи и
+// текущий путь к exe. Вызывается после переименования exe при обновлении
+// старой копии программы.
+func migrateAutostartTask(exe string) {
+	cmd := exec.Command("schtasks", "/Query", "/TN", taskNameOld)
+	cmd.SysProcAttr = hiddenProc()
+	if cmd.Run() != nil {
+		return // старой задачи нет
+	}
+	del := exec.Command("schtasks", "/Delete", "/TN", taskNameOld, "/F")
+	del.SysProcAttr = hiddenProc()
+	_ = del.Run()
+	_ = setAutostart(true, exe)
+}
 
 func autostartEnabled() bool {
 	cmd := exec.Command("schtasks", "/Query", "/TN", taskName)

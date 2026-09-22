@@ -10,7 +10,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"runtime/debug"
+	"strings"
 	"time"
 
 	"golang.org/x/sys/windows"
@@ -20,6 +22,27 @@ const appName = "Mejgorod"
 
 // appVersion - var, чтобы проверять обновление сборкой с другой версией (-X main.appVersion).
 var appVersion = "0.2.0"
+
+// renameToCanonical - копия, которая ещё называется MihomoDesk.exe (до
+// переименования программы), после самообновления переименовывает себя в
+// Mejgorod.exe: иначе внутри уже новая программа, а файл на диске - со
+// старым именем. Windows разрешает переименовать свой же запущенный exe,
+// путь для всего остального (paths.Exe и т.д.) читается заново уже после
+// этого. Старые ярлыки на прежнее имя после этого не работают - только
+// перенести автозапуск на новое имя задачи получится, ярлыки - руками.
+func renameToCanonical() {
+	cur, err := os.Executable()
+	if err != nil || strings.EqualFold(filepath.Base(cur), appName+".exe") {
+		return
+	}
+	canon := filepath.Join(filepath.Dir(cur), appName+".exe")
+	if err := os.Rename(cur, canon); err != nil {
+		log.Printf("не удалось переименовать в %s: %v", appName+".exe", err)
+		return
+	}
+	migrateAutostartTask(canon)
+	log.Printf("программа переименована в %s (обновление со старого имени)", appName+".exe")
+}
 
 func main() {
 	defer func() {
@@ -37,6 +60,7 @@ func main() {
 	flag.Parse()
 	if *afterUpdate > 0 {
 		waitForExit(*afterUpdate, 30*time.Second)
+		renameToCanonical()
 	}
 	// отладка интерфейса без прав администратора: ядро стартует без TUN
 	devNoTun = os.Getenv("MEJGOROD_DEV_NOTUN") == "1"
