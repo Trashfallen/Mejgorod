@@ -4,20 +4,22 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 	"runtime/debug"
+	"time"
 
 	"golang.org/x/sys/windows"
 )
 
-const (
-	appName    = "MihomoDesk"
-	appVersion = "1.0.0"
-)
+const appName = "MihomoDesk"
+
+// appVersion - var, чтобы проверять обновление сборкой с другой версией (-X main.appVersion).
+var appVersion = "1.1.0"
 
 func main() {
 	defer func() {
@@ -28,9 +30,20 @@ func main() {
 	}()
 	autostart := flag.Bool("autostart", false, "запуск из автозагрузки: без окна")
 	noElevate := flag.Bool("no-elevate", false, "не запрашивать права администратора (отладка)")
+	afterUpdate := flag.Int("after-update", 0, "pid старой копии: дождаться её выхода после обновления")
+	token := flag.String("token", "", "токен окна (перезапуск после обновления)")
+	noWindow := flag.Bool("no-window", false, "не открывать окно (оно уже открыто)")
+	connect := flag.Bool("connect", false, "подключить VPN после запуска")
 	flag.Parse()
+	if *afterUpdate > 0 {
+		waitForExit(*afterUpdate, 30*time.Second)
+	}
 	// отладка интерфейса без прав администратора: ядро стартует без TUN
 	devNoTun = os.Getenv("MIHOMODESK_DEV_NOTUN") == "1"
+	noElevateRun = *noElevate
+	if u := os.Getenv("MIHOMODESK_UPDATE_API"); u != "" {
+		updateAPI = u // проверка обновления на своём сервере
+	}
 
 	paths, err := newPaths()
 	if err != nil {
@@ -65,7 +78,8 @@ func main() {
 	}
 	setupLog(paths)
 
-	app, err := newApp(paths)
+	go cleanupOldExe()
+	app, err := newApp(paths, *token)
 	if err != nil {
 		fatalBox(err.Error())
 		return
@@ -76,11 +90,20 @@ func main() {
 	}
 	log.Printf("%s %s started, ui port %d, elevated=%v", appName, appVersion, app.port, isElevated())
 
-	if !*autostart {
+	if !*autostart && !*noWindow {
 		go app.openWindow()
 	}
-	if app.settings.Get().ConnectOnLaunch {
+	if *connect || app.settings.Get().ConnectOnLaunch {
 		app.core.Connect()
+	}
+	if !app.settings.Get().NoUpdateCheck {
+		go func() {
+			time.Sleep(3 * time.Second)
+			_ = app.updater.Check(context.Background())
+			if u := app.updater.State(); u.Available {
+				app.logs.Add("app", "info", "Доступна новая версия "+u.Version)
+			}
+		}()
 	}
 
 	runTray(app) // блокирует до выхода

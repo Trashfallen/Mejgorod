@@ -10,9 +10,12 @@ One-click Windows VPN client on the [mihomo](https://github.com/MetaCubeX/mihomo
 - **Router config as is.** The XKeen config is adapted for the PC on the fly. Your text is never rewritten.
 - **Templates.** The editor starts empty. The "Template" button loads a built-in config or any `.yaml` from the `templates` folder next to the exe.
 - **Servers.** Import `vless://` links (the link is picked up from the clipboard) and switch between them. The first imported server is selected automatically.
-- **Groups.** Pick a server for each service group and check the latency.
+- **Groups board.** Two columns, "Via VPN" and "Direct". Drag a service (YouTube, Discord, ...) between them or click it to pick a specific server. Works with the VPN off too: the choice is applied on connect.
+- **Your own sites and apps.** The "+" button in a column adds a site or a program. For a site, its domains are looked up in the MetaCubeX geosite/geoip lists (instagram.com -> 74 domains, auto-updated). For a program, all its traffic goes the chosen way (`PROCESS-NAME`).
 - **Logs and checks.** Core logs with filters. The config is validated by the core before start, and errors jump to the line in the editor.
 - **Works next to Citrix.** Coexists with Citrix Secure Access (see below).
+- **Updates.** On start the app checks the releases of this repository. "Update" downloads the new exe, swaps it and restarts without a UAC prompt, the window stays open.
+- **Light.** While the window is hidden, it barely polls. The config is re-read only when it changes, and the connection list is fetched from the core only while someone is looking.
 - **Portable.** Everything is stored next to the exe. The mihomo core is downloaded from the official releases on the first connect.
 
 ## Requirements
@@ -52,6 +55,18 @@ The config is stored as pasted (`data\config.yaml`). Before starting the core, t
 
 Removed lines are commented out, not deleted, so line numbers in core errors match the editor.
 
+Sites and programs added with "+" are written into the config itself, so the same config works on the router too:
+
+```yaml
+rules:
+  # MihomoDesk: свои сайты и программы (вкладка «Группы»)
+  - OR,((DOMAIN-SUFFIX,instagram.com),(RULE-SET,instagram@domain)),PROXY # desk: instagram.com
+  - PROCESS-NAME,Telegram.exe,DIRECT # desk: Telegram.exe
+  # MihomoDesk: конец
+```
+
+The section goes first in `rules`, so an explicit choice wins over the other rules. Lists found for sites go into a similar section at the end of `rule-providers`. Do not edit lines between the markers by hand: the Groups tab rewrites them.
+
 ## Next to Citrix Secure Access
 
 Citrix intercepts outgoing packets, puts "foreign" ones back into the Windows stack and resets connections it does not like. A regular TUN with a default route cannot live with it. The core catches its own connections (thousands of `reject loopback`, the PC slows down), and Citrix routes its own gateway through TUN and breaks itself.
@@ -89,6 +104,15 @@ set MIHOMODESK_CONFIG=path\to\config.yaml
 set MIHOMODESK_CORE=dist\data\core\mihomo.exe
 go test -run TestAdaptRealConfig -v .
 ```
+
+## Releases
+
+The app updates itself from the latest release of this repository:
+
+1. Bump `appVersion` in `main.go` and the version in `build.cmd`, build with `build.cmd`.
+2. Create a release with a tag like `v1.2.0` and attach `dist\MihomoDesk.exe`. The asset must be named exactly `MihomoDesk.exe`.
+
+Apps with an older version will offer the update on the next start.
 
 ## Credits
 

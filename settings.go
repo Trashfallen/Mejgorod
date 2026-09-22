@@ -10,12 +10,13 @@ import (
 
 type Settings struct {
 	ConnectOnLaunch bool   `json:"connectOnLaunch"`
-	TunStack        string `json:"tunStack"`       // mixed | gvisor | system
-	StrictRoute     bool   `json:"strictRoute"`    // tun.strict-route: защита от утечек DNS
-	TunRoute        string `json:"tunRoute"`       // auto | full | split (см. splitroute.go)
-	ControllerPort  int    `json:"controllerPort"` // порт API ядра и zashboard
-	UIPort          int    `json:"uiPort"`         // порт окна программы
-	Secret          string `json:"secret"`         // secret для API, если его нет в конфиге
+	TunStack        string `json:"tunStack"`                // mixed | gvisor | system
+	StrictRoute     bool   `json:"strictRoute"`             // tun.strict-route: защита от утечек DNS
+	TunRoute        string `json:"tunRoute"`                // auto | full | split (см. splitroute.go)
+	NoUpdateCheck   bool   `json:"noUpdateCheck,omitempty"` // не проверять обновления при запуске
+	ControllerPort  int    `json:"controllerPort"`          // порт API ядра и zashboard
+	UIPort          int    `json:"uiPort"`                  // порт окна программы
+	Secret          string `json:"secret"`                  // secret для API, если его нет в конфиге
 }
 
 func defaultSettings() Settings {

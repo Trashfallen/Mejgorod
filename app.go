@@ -12,6 +12,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -22,6 +23,8 @@ type App struct {
 	logs     *LogBuf
 	core     *Core
 	fetcher  *Fetcher
+	boardSt  *BoardStore
+	updater  *Updater
 
 	token  string
 	port   int
@@ -29,18 +32,27 @@ type App struct {
 
 	mu          sync.Mutex
 	coreVersion string
+	cfgCache    cfgSnapshot
+	lastUI      atomic.Int64 // когда окно последний раз спрашивало состояние (unix ns)
 	quitOnce    sync.Once
 	quitFn      func()
 }
 
-func newApp(p Paths) (*App, error) {
+// newApp: token задаётся при перезапуске после обновления, чтобы открытое
+// окно продолжило работать; иначе пустой - будет случайный.
+func newApp(p Paths, token string) (*App, error) {
+	if token == "" {
+		token = randomHex(16)
+	}
 	a := &App{
 		paths:    p,
 		settings: loadSettings(p.Settings),
 		servers:  loadServers(p.Servers),
+		boardSt:  loadBoard(p.Board),
+		updater:  &Updater{},
 		logs:     newLogBuf(3000),
 		fetcher:  &Fetcher{},
-		token:    randomHex(16),
+		token:    token,
 	}
 	a.core = newCore(a)
 	// недокачанное обновление ядра с прошлого раза
@@ -119,13 +131,42 @@ type ConfigInfo struct {
 }
 
 func (a *App) configInfo() ConfigInfo {
-	st, err := os.Stat(a.paths.UserConfig)
-	if err != nil || st.Size() == 0 {
+	c := a.cfg()
+	if strings.TrimSpace(c.text) == "" {
 		return ConfigInfo{}
 	}
-	b, _ := os.ReadFile(a.paths.UserConfig)
-	p, g := configStats(string(b))
-	return ConfigInfo{Exists: strings.TrimSpace(string(b)) != "", Modified: st.ModTime().UnixMilli(), Proxies: p, Groups: g}
+	return ConfigInfo{Exists: true, Modified: c.mod.UnixMilli(), Proxies: c.proxies, Groups: c.groups}
+}
+
+// cfgSnapshot - конфиг пользователя и то, что из него часто нужно.
+// Перечитывается, только когда файл изменился.
+type cfgSnapshot struct {
+	mod             time.Time
+	size            int64
+	text            string
+	proxies, groups int
+	selects         []string
+}
+
+func (a *App) cfg() cfgSnapshot {
+	st, err := os.Stat(a.paths.UserConfig)
+	if err != nil {
+		return cfgSnapshot{}
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if c := a.cfgCache; c.mod.Equal(st.ModTime()) && c.size == st.Size() {
+		return c
+	}
+	b, err := os.ReadFile(a.paths.UserConfig)
+	if err != nil {
+		return cfgSnapshot{}
+	}
+	c := cfgSnapshot{mod: st.ModTime(), size: st.Size(), text: string(b)}
+	c.proxies, c.groups = configStats(c.text)
+	c.selects = selectGroups(c.text)
+	a.cfgCache = c
+	return c
 }
 
 func (a *App) writeInstance() error {
@@ -184,15 +225,12 @@ func (a *App) shutdown() {
 
 // ---------- серверы ----------
 
-func (a *App) userConfig() string {
-	b, _ := os.ReadFile(a.paths.UserConfig)
-	return string(b)
-}
+func (a *App) userConfig() string { return a.cfg().text }
 
 // mainGroup - группа, через которую переключаются серверы: выбранная
 // пользователем или первая select-группа конфига.
 func (a *App) mainGroup() string {
-	groups := selectGroups(a.userConfig())
+	groups := a.cfg().selects
 	want := a.servers.Snapshot().Group
 	for _, g := range groups {
 		if g == want {

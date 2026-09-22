@@ -131,15 +131,28 @@
         <div class="tools">
           <label class="search">
             <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-            <input id="groupSearch" placeholder="Поиск группы или сервера">
+            <input id="groupSearch" placeholder="Поиск сервиса или сайта">
           </label>
-          <button class="btn" id="pingAll">
-            <svg viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>Пинг всех
-          </button>
         </div>
       </header>
-      <div class="empty" id="groupsEmpty">Подключитесь, чтобы выбирать серверы для сервисов</div>
-      <div class="groups" id="groupsList"></div>
+      <p class="muted small board-hint" id="boardHint"></p>
+      <div class="empty" id="boardEmpty" hidden></div>
+      <div class="board" id="board">
+        <div class="col" data-route="vpn">
+          <div class="col-head">
+            <span class="col-dot"></span><b>Через VPN</b><span class="count" id="cntVpn"></span>
+            <button class="icon-btn" data-add="vpn" title="Добавить сайт или программу через VPN"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></button>
+          </div>
+          <div class="col-body" id="colVpn"></div>
+        </div>
+        <div class="col" data-route="direct">
+          <div class="col-head">
+            <span class="col-dot"></span><b>Напрямую</b><span class="count" id="cntDirect"></span>
+            <button class="icon-btn" data-add="direct" title="Добавить сайт или программу напрямую"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></button>
+          </div>
+          <div class="col-body" id="colDirect"></div>
+        </div>
+      </div>
     </section>
 
     <!-- КОНФИГ -->
@@ -280,6 +293,19 @@
         </div>
 
         <div class="card">
+          <h3>Программа</h3>
+          <div class="row">
+            <div class="row-text"><b id="appVer">MihomoDesk</b><span id="appUpdMsg">Обновления берутся из релизов github.com/Trashfallen/mihomo-desk</span></div>
+            <button class="btn" id="appUpdBtn">Проверить обновления</button>
+          </div>
+          <div class="progress" id="appUpdProgress" hidden><div></div></div>
+          <label class="row">
+            <div class="row-text"><b>Проверять обновления при запуске</b><span>Сама новая версия не ставится: появится кнопка «Обновить»</span></div>
+            <input type="checkbox" class="switch" id="setUpdCheck">
+          </label>
+        </div>
+
+        <div class="card">
           <h3>Ядро mihomo</h3>
           <div class="row">
             <div class="row-text"><b id="coreVer">не установлено</b><span>Официальная сборка с github.com/MetaCubeX/mihomo</span></div>
@@ -344,6 +370,61 @@
     <div class="modal-actions">
       <button class="btn" id="srvPasteBtn">Вставить из буфера</button>
       <button class="btn primary" id="srvAddConfirm">Импортировать</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="modal modal-small" id="grpModal">
+  <div class="modal-head">
+    <h3 id="grpTitle"></h3>
+    <div class="head-actions">
+      <button class="btn small" id="grpPing">Пинг</button>
+      <button class="btn small" id="grpClose">Закрыть</button>
+    </div>
+  </div>
+  <div class="modal-body">
+    <p class="muted small" id="grpNote"></p>
+    <div class="opts" id="grpOpts"></div>
+  </div>
+</dialog>
+
+<dialog class="modal modal-small" id="addModal">
+  <div class="modal-head">
+    <h3>Добавить</h3>
+    <button class="btn small" id="addClose">Закрыть</button>
+  </div>
+  <div class="modal-body">
+    <div class="add-top">
+      <div class="seg" id="addKind"><button data-k="site">Сайт</button><button data-k="app">Программа</button></div>
+      <div class="seg" id="addRoute"><button data-r="vpn">Через VPN</button><button data-r="direct">Напрямую</button></div>
+    </div>
+    <div class="add-pane" id="addSite">
+      <div class="add-row">
+        <input class="text" id="siteInput" placeholder="instagram.com" spellcheck="false">
+        <button class="btn" id="siteFind">Найти домены</button>
+      </div>
+      <div id="siteResult"></div>
+      <details class="extra">
+        <summary class="muted small">Добавить свои домены</summary>
+        <textarea class="text-area" id="siteExtra" spellcheck="false" placeholder="по одному в строке, например cdninstagram.com"></textarea>
+      </details>
+    </div>
+    <div class="add-pane" id="addApp" hidden>
+      <div class="add-row">
+        <input class="text" id="appInput" placeholder="Telegram.exe" spellcheck="false">
+        <label class="btn" for="appFile">Выбрать .exe</label>
+        <input type="file" id="appFile" accept=".exe" hidden>
+      </div>
+      <label class="search wide">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="appSearch" placeholder="Поиск среди запущенных программ">
+      </label>
+      <div class="proc-list" id="procList"></div>
+      <p class="muted small">Весь трафик программы пойдёт выбранным путём (правило PROCESS-NAME).</p>
+    </div>
+    <div class="result" id="addResult"></div>
+    <div class="modal-actions">
+      <button class="btn primary" id="addConfirm">Добавить</button>
     </div>
   </div>
 </dialog>

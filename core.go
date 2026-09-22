@@ -274,7 +274,10 @@ func (c *Core) launch(ctx context.Context) error {
 	if !devNoTun && set.TunRoute == "auto" {
 		go c.watchCorpVPN(env.CorpVPN != nil, done)
 	}
-	go a.applyActiveServer()
+	go func() {
+		a.applyActiveServer()
+		a.applyBoardChoices()
+	}()
 	go func() {
 		c.refreshProviders(ad.Port, ad.Secret, done)
 		// нужные для маршрутов списки скачались только сейчас - применяем
@@ -549,6 +552,14 @@ func (c *Core) watchTraffic(port int, secret string, done chan struct{}) {
 
 	go func() {
 		for ctx.Err() == nil {
+			if !c.app.uiActive() {
+				// окна нет: счётчик соединений никто не видит, ядро не дёргаем
+				select {
+				case <-ctx.Done():
+				case <-time.After(3 * time.Second):
+				}
+				continue
+			}
 			if resp, err := get("/connections"); err == nil {
 				var v struct {
 					Up    int64             `json:"uploadTotal"`

@@ -73,6 +73,15 @@ func (a *App) startServer() error {
 	mux.HandleFunc("PUT /api/servers/{id}", a.auth(a.hRenameServer))
 	mux.HandleFunc("DELETE /api/servers/{id}", a.auth(a.hDeleteServer))
 	mux.HandleFunc("POST /api/core/update", a.auth(a.hCoreUpdate))
+	mux.HandleFunc("POST /api/app/check", a.auth(a.hAppCheck))
+	mux.HandleFunc("POST /api/app/update", a.auth(a.hAppUpdate))
+	mux.HandleFunc("GET /api/board", a.auth(a.hBoard))
+	mux.HandleFunc("PUT /api/board/group", a.auth(a.hBoardGroup))
+	mux.HandleFunc("POST /api/board/items", a.auth(a.hBoardAdd))
+	mux.HandleFunc("PUT /api/board/items/{id}", a.auth(a.hBoardMove))
+	mux.HandleFunc("DELETE /api/board/items/{id}", a.auth(a.hBoardDelete))
+	mux.HandleFunc("GET /api/lookup", a.auth(a.hLookup))
+	mux.HandleFunc("GET /api/processes", a.auth(a.hProcesses))
 	mux.HandleFunc("POST /api/open", a.auth(a.hOpen))
 	mux.HandleFunc("POST /api/quit", a.auth(a.hQuit))
 	mux.HandleFunc("/api/mihomo/", a.auth(a.hMihomo))
@@ -136,6 +145,7 @@ type stateResp struct {
 		Version   string `json:"version"`
 	} `json:"core"`
 	Download DownloadState `json:"download"`
+	Update   AppUpdate     `json:"update"`
 	Config   ConfigInfo    `json:"config"`
 	App      struct {
 		Version string `json:"version"`
@@ -155,13 +165,22 @@ func (a *App) state() stateResp {
 	s.Core.Installed = fileExists(a.paths.CoreExe)
 	s.Core.Version = a.CoreVersion()
 	s.Download = a.fetcher.State()
+	s.Update = a.updater.State()
 	s.Config = a.configInfo()
 	s.App.Version = appVersion
 	s.App.DataDir = a.paths.Data
 	return s
 }
 
-func (a *App) hState(w http.ResponseWriter, r *http.Request) { writeJSON(w, 200, a.state()) }
+func (a *App) hState(w http.ResponseWriter, r *http.Request) {
+	a.lastUI.Store(time.Now().UnixNano())
+	writeJSON(w, 200, a.state())
+}
+
+// uiActive - окно открыто и на виду (свёрнутое спрашивает редко).
+func (a *App) uiActive() bool {
+	return time.Since(time.Unix(0, a.lastUI.Load())) < 4*time.Second
+}
 
 func (a *App) hConnect(w http.ResponseWriter, r *http.Request) {
 	a.core.Connect()
@@ -314,6 +333,7 @@ func (a *App) settingsResp() map[string]any {
 		"tunStack":        s.TunStack,
 		"strictRoute":     s.StrictRoute,
 		"tunRoute":        s.TunRoute,
+		"updateCheck":     !s.NoUpdateCheck,
 		"controllerPort":  s.ControllerPort,
 		"autostart":       autostartEnabled(),
 		"exe":             a.paths.Exe,
@@ -330,6 +350,7 @@ func (a *App) hPutSettings(w http.ResponseWriter, r *http.Request) {
 		TunStack        *string `json:"tunStack"`
 		StrictRoute     *bool   `json:"strictRoute"`
 		TunRoute        *string `json:"tunRoute"`
+		UpdateCheck     *bool   `json:"updateCheck"`
 		ControllerPort  *int    `json:"controllerPort"`
 		Autostart       *bool   `json:"autostart"`
 	}
@@ -374,6 +395,9 @@ func (a *App) hPutSettings(w http.ResponseWriter, r *http.Request) {
 		}
 		if in.TunRoute != nil {
 			s.TunRoute = *in.TunRoute
+		}
+		if in.UpdateCheck != nil {
+			s.NoUpdateCheck = !*in.UpdateCheck
 		}
 		if in.StrictRoute != nil {
 			s.StrictRoute = *in.StrictRoute
@@ -449,14 +473,16 @@ func (a *App) hMihomo(w http.ResponseWriter, r *http.Request) {
 	// выбор в основной группе на вкладке «Группы» = выбор сервера
 	if r.Method == "PUT" && strings.HasPrefix(r.URL.Path, "/api/mihomo/proxies/") {
 		group := strings.TrimPrefix(r.URL.Path, "/api/mihomo/proxies/")
-		if group == a.mainGroup() {
-			body, _ := io.ReadAll(io.LimitReader(r.Body, 1<<20))
-			r.Body = io.NopCloser(bytes.NewReader(body))
-			var in struct {
-				Name string `json:"name"`
-			}
-			if json.Unmarshal(body, &in) == nil && in.Name != "" {
+		body, _ := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+		r.Body = io.NopCloser(bytes.NewReader(body))
+		var in struct {
+			Name string `json:"name"`
+		}
+		if json.Unmarshal(body, &in) == nil && in.Name != "" && !strings.Contains(group, "/") {
+			if group == a.mainGroup() {
 				_ = a.servers.Update(func(f *serversFile) error { f.Active = in.Name; return nil })
+			} else {
+				_ = a.boardSt.SetChoice(group, in.Name)
 			}
 		}
 	}

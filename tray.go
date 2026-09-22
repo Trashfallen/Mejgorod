@@ -91,7 +91,7 @@ func runTray(a *App) {
 				case <-changes:
 					// берём актуальный статус: события могли прийти пачкой
 					refresh()
-				case <-time.After(2 * time.Second):
+				case <-time.After(10 * time.Second):
 					refresh()
 				}
 			}

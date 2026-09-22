@@ -20,6 +20,7 @@ type Paths struct {
 	RunConfig  string // адаптированный под ПК конфиг, с которым запускается ядро
 	Settings   string
 	Servers    string // серверы, добавленные в программе
+	Board      string // выбор в группах сервисов (вкладка «Группы»)
 	Instance   string
 	WebProfile string // профиль Edge для окна программы
 	AppLog     string
@@ -45,6 +46,7 @@ func newPaths() (Paths, error) {
 		RunConfig:  filepath.Join(data, "home", "config.yaml"),
 		Settings:   filepath.Join(data, "settings.json"),
 		Servers:    filepath.Join(data, "servers.json"),
+		Board:      filepath.Join(data, "board.json"),
 		Instance:   filepath.Join(data, "instance.json"),
 		WebProfile: filepath.Join(data, "window"),
 		AppLog:     filepath.Join(data, "app.log"),

@@ -25,7 +25,6 @@ function svg(paths) {
   el.innerHTML = paths;
   return el;
 }
-const ICON_BOLT = '<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>';
 
 const esc = (s) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 
@@ -105,6 +104,7 @@ function go(p) {
   $$('.nav-item').forEach((b) => b.classList.toggle('active', b.dataset.page === p));
   $$('.page').forEach((s) => s.classList.toggle('active', s.id === 'page-' + p));
   if (p === 'groups' || p === 'home') loadGroups();
+  if (p === 'groups') loadBoard();
   if (p === 'logs') { $('#navLogDot').hidden = true; scrollLogs(true); loadCoreLevel(); }
   if (p === 'settings') loadSettings();
   if (p === 'servers') { srvAutoPinged = false; loadServers(); }
@@ -123,13 +123,31 @@ const STATUS_TEXT = {
   stopped: 'Отключено', starting: 'Подключение', running: 'Подключено', stopping: 'Отключение', error: 'Ошибка',
 };
 
+// Свёрнутое окно почти не опрашивает программу; при разворачивании - сразу обновляемся.
+const timers = {};
+function schedule(name, fn, ms) {
+  clearTimeout(timers[name]);
+  timers[name] = setTimeout(fn, ms);
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) return;
+  pollState();
+  pollLogs();
+  if (page === 'groups' || page === 'home') loadGroups();
+  if (page === 'groups') loadBoard();
+});
+
+let loadedVersion = '';
 async function pollState() {
   try {
     S = await api('/state');
+    // программа обновилась и перезапустилась с тем же окном - берём новый интерфейс
+    if (loadedVersion && S.app.version !== loadedVersion) { location.reload(); return; }
+    loadedVersion = S.app.version;
     renderState();
   } catch (e) { /* покажет оверлей */ }
-  const fast = S && (S.status === 'starting' || S.status === 'stopping' || S.download.active);
-  setTimeout(pollState, fast ? 400 : 1000);
+  const fast = S && (S.status === 'starting' || S.status === 'stopping' || S.download.active || S.update.busy);
+  schedule('state', pollState, document.hidden ? 15000 : fast ? 400 : 1000);
 }
 
 function renderState() {
@@ -172,9 +190,11 @@ function renderState() {
   $('#versions').textContent = 'v' + S.app.version + ' · ' + (S.core.installed ? 'ядро ' + (S.core.version || '...') : 'ядро не скачано');
   $('#dataDir').textContent = S.app.dataDir;
   renderCoreBlock();
+  renderAppUpdate();
 
   if (st !== prevStatus) {
     if (st === 'running' || prevStatus === 'running' || prevStatus === '') loadGroups();
+    if (page === 'groups') loadBoard();
     if (page === 'servers') loadServers();
     if (st === 'error' && page !== 'logs') $('#navLogDot').hidden = false;
     $('#coreLevel').disabled = st !== 'running';
@@ -185,7 +205,8 @@ function renderState() {
 
 function renderNotice() {
   const n = $('#homeNotice');
-  const key = [S.elevated, S.config.exists].join();
+  const u = S.update;
+  const key = [S.elevated, S.config.exists, u.available, u.version, u.busy, u.message, u.error, Math.round((u.progress || 0) * 20)].join();
   if (n.dataset.key === key) return; // не пересоздаём кнопки каждую секунду
   n.dataset.key = key;
   n.replaceChildren();
@@ -197,8 +218,62 @@ function renderNotice() {
       h('span', {}, 'Конфига ещё нет. Выберите готовый шаблон или вставьте свой.'),
       h('button', { class: 'btn small', onclick: () => { go('config'); openTemplates(); } }, 'Выбрать шаблон')));
   }
+  if (u.available || u.busy) {
+    const pct = u.busy && u.progress >= 0 && u.progress < 1 ? ' ' + Math.round(u.progress * 100) + '%' : '';
+    const text = u.busy ? (u.message || 'Обновляю') + pct
+      : u.error ? 'Не удалось обновить до ' + u.version + ': ' + u.error
+        : 'Доступна новая версия ' + u.version;
+    const row = h('div', { class: 'notice-row' }, h('span', {}, text));
+    if (!u.busy) {
+      const acts = h('div', { class: 'head-actions' });
+      if (u.url) acts.append(h('button', { class: 'btn small', onclick: () => window.open(u.url, '_blank') }, 'Что нового'));
+      acts.append(h('button', { class: 'btn small primary', onclick: startAppUpdate }, 'Обновить'));
+      row.append(acts);
+    }
+    n.append(row);
+  }
   n.hidden = !n.childElementCount;
 }
+
+async function startAppUpdate() {
+  if (cfgDirty() && !confirm('В редакторе конфига есть несохранённые изменения, они пропадут при перезапуске. Обновить?')) return;
+  try { await api('/app/update', { method: 'POST' }); toast('Скачиваю обновление', 'ok'); }
+  catch (e) { toast(e.message, 'err'); }
+}
+
+function renderAppUpdate() {
+  const u = S.update;
+  $('#appVer').textContent = 'MihomoDesk ' + S.app.version;
+  const msg = $('#appUpdMsg');
+  msg.textContent = u.busy ? (u.message || 'Обновляю')
+    : u.error ? 'Ошибка: ' + u.error
+      : u.available ? 'Доступна версия ' + u.version
+        : u.message || 'Обновления берутся из релизов github.com/Trashfallen/mihomo-desk';
+  msg.style.color = u.error ? 'var(--err)' : u.available ? 'var(--accent-text)' : '';
+  const bar = $('#appUpdProgress');
+  bar.hidden = !u.busy;
+  bar.classList.toggle('indet', u.busy && u.progress < 0);
+  bar.firstElementChild.style.width = u.progress >= 0 ? Math.round(u.progress * 100) + '%' : '';
+  const b = $('#appUpdBtn');
+  b.disabled = u.busy;
+  b.textContent = u.available ? 'Обновить до ' + u.version : 'Проверить обновления';
+}
+
+$('#appUpdBtn').addEventListener('click', async (e) => {
+  if (S && S.update.available) return startAppUpdate();
+  const btn = e.currentTarget;
+  busy(btn, true);
+  try {
+    const u = await api('/app/check', { method: 'POST' });
+    if (u.error) toast(u.error, 'err');
+    else if (u.available) toast('Доступна версия ' + u.version, 'ok');
+    else toast(u.message || 'Установлена последняя версия', 'ok');
+    S.update = u;
+    renderAppUpdate();
+    renderNotice();
+  } catch (err) { toast(err.message, 'err'); }
+  busy(btn, false);
+});
 
 async function togglePower() {
   if (!S) return;
@@ -272,37 +347,12 @@ function groupIcon(g) {
   return img;
 }
 
-const TYPE_TEXT = { Selector: 'выбор', URLTest: 'авто: самый быстрый', Fallback: 'авто: резерв', LoadBalance: 'балансировка', Relay: 'цепочка' };
 
 function renderGroups() {
-  const list = $('#groupsList');
   const quick = $('#quickGroups');
   const on = !!(groupsData && groupsData.groups.length);
-  $('#groupsEmpty').hidden = on;
   $('#quickEmpty').hidden = on;
-  $('#pingAll').disabled = !on;
-  if (!on) { list.replaceChildren(); quick.replaceChildren(); return; }
-
-  const q = $('#groupSearch').value.trim().toLowerCase();
-  const cards = [];
-  for (const g of groupsData.groups) {
-    if (q && !g.name.toLowerCase().includes(q) && !g.all.some((n) => n.toLowerCase().includes(q))) continue;
-    const selectable = g.type === 'Selector';
-    const opts = g.all.map((name) =>
-      h('button', {
-        class: 'opt' + (name === g.now ? ' on' : ''),
-        title: name,
-        disabled: !selectable,
-        onclick: () => selectProxy(g.name, name),
-      }, h('span', { class: 'oname' }, name), delayEl(name)));
-    const pingBtn = h('button', { class: 'icon-btn', title: 'Проверить пинг', onclick: (e) => pingGroup(g.name, e.currentTarget) }, svg(ICON_BOLT));
-    cards.push(h('div', { class: 'group' },
-      h('div', { class: 'ghead' }, groupIcon(g),
-        h('div', { class: 'gtitle' }, h('b', {}, g.name), h('span', {}, (TYPE_TEXT[g.type] || g.type) + ' · ' + (g.now || '-'))),
-        pingBtn),
-      h('div', { class: 'opts' }, opts)));
-  }
-  list.replaceChildren(...cards);
+  if (!on) { quick.replaceChildren(); return; }
 
   const rows = groupsData.groups.filter((g) => g.type === 'Selector').map((g) => {
     const sel = h('select', { title: g.name, onchange: (e) => selectProxy(g.name, e.target.value) },
@@ -311,12 +361,11 @@ function renderGroups() {
   });
   quick.replaceChildren(...rows);
 }
-$('#groupSearch').addEventListener('input', renderGroups);
-
 async function selectProxy(group, name) {
   try {
     await api('/mihomo/proxies/' + encodeURIComponent(group), { method: 'PUT', body: { name } });
     await loadGroups();
+    if (page === 'groups') loadBoard();
   } catch (e) { toast('Не удалось переключить: ' + e.message, 'err'); }
 }
 
@@ -336,21 +385,342 @@ async function pingGroup(name, btn) {
   renderGroups();
 }
 
-$('#pingAll').addEventListener('click', async (e) => {
-  const btn = e.currentTarget;
-  if (!groupsData) return;
-  btn.classList.add('busy');
-  delays.clear();
-  // все группы разом: ядро само проверит каждый сервер один раз
-  await Promise.all(groupsData.groups.map((g) => pingGroup(g.name)));
-  btn.classList.remove('busy');
-  await loadGroups();
-});
-
 setInterval(() => {
+  if (document.hidden) return;
   if (page === 'groups' || page === 'home') loadGroups();
+  if (page === 'groups') loadBoard();
   if (page === 'servers') loadServers();
 }, 5000);
+
+// ---------- доска «Через VPN / Напрямую» ----------
+let BOARD = null;
+let dragInfo = null;
+const ICON_GLOBE = '<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18"/>';
+const ICON_APP = '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/>';
+const ICON_LOCK = '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>';
+const ICON_SWAP = '<path d="M4 8h14l-4-4"/><path d="M20 16H6l4 4"/>';
+const OPT_TEXT = { DIRECT: 'Напрямую', PASS: 'По общим правилам', REJECT: 'Блокировать', 'REJECT-DROP': 'Блокировать молча' };
+
+async function loadBoard() {
+  if (dragInfo) return; // не перерисовываем посреди перетаскивания
+  try { BOARD = await api('/board'); } catch (e) { BOARD = null; }
+  renderBoard();
+  if ($('#grpModal').open) renderGroupModal();
+}
+
+function colOf(route) { return route === 'vpn' ? 'vpn' : 'direct'; }
+
+function groupSub(g) {
+  if (g.route === 'direct') return 'напрямую';
+  if (g.route === 'pass') return 'по общим правилам (дальше в конфиге)';
+  if (g.route === 'block') return 'заблокировано';
+  return 'через ' + g.now;
+}
+
+function renderBoard() {
+  const empty = $('#boardEmpty');
+  const noGroups = BOARD && !BOARD.groups.length && !BOARD.items.length;
+  empty.hidden = !!BOARD && !noGroups;
+  $('#board').hidden = !BOARD;
+  if (!BOARD) { empty.textContent = 'Не удалось прочитать конфиг'; return; }
+  if (noGroups) empty.textContent = 'В конфиге нет групп сервисов. Добавьте сайты и программы кнопкой «+» или выберите шаблон на вкладке «Конфиг».';
+  $('#boardHint').textContent = 'Перетащите сервис в нужную колонку или нажмите на него, чтобы выбрать сервер. «+» добавляет свой сайт или программу.' +
+    (BOARD.running ? '' : ' VPN выключен: выбор сохранится и применится при подключении.');
+
+  const q = $('#groupSearch').value.trim().toLowerCase();
+  const svc = { vpn: [], direct: [] };
+  const own = { vpn: [], direct: [] };
+  for (const g of BOARD.groups) {
+    if (!q || g.name.toLowerCase().includes(q)) svc[colOf(g.route)].push(groupCard(g));
+  }
+  for (const it of BOARD.items) {
+    if (!q || it.label.toLowerCase().includes(q)) own[colOf(it.route)].push(itemCard(it));
+  }
+  for (const r of ['vpn', 'direct']) {
+    const kids = [...svc[r]];
+    if (own[r].length) kids.push(h('div', { class: 'col-sub' }, 'Свои сайты и программы'), ...own[r]);
+    if (!kids.length) {
+      kids.push(h('div', { class: 'col-empty' }, q ? 'Ничего не найдено' :
+        r === 'vpn' ? 'Перетащите сюда то, что должно идти через VPN' : 'Перетащите сюда то, что должно идти напрямую'));
+    }
+    $(r === 'vpn' ? '#colVpn' : '#colDirect').replaceChildren(...kids);
+    const n = svc[r].length + own[r].length;
+    $(r === 'vpn' ? '#cntVpn' : '#cntDirect').textContent = n ? String(n) : '';
+  }
+}
+
+function groupCard(g) {
+  const to = colOf(g.route) === 'vpn' ? 'direct' : 'vpn';
+  const canMove = !!(to === 'vpn' ? g.vpn : g.direct);
+  const el = h('div', {
+    class: 'bcard' + (canMove ? '' : ' locked'),
+    draggable: canMove ? 'true' : null,
+    title: canMove ? 'Перетащите в другую колонку или нажмите, чтобы выбрать сервер'
+      : 'У группы нет варианта ' + (to === 'vpn' ? 'через VPN' : '«напрямую»') + '. Нажмите, чтобы выбрать сервер',
+  },
+  groupIcon(g),
+  h('div', { class: 'btext' }, h('b', {}, g.name), h('span', {}, groupSub(g))),
+  canMove
+    ? h('button', { class: 'icon-btn', title: to === 'vpn' ? 'Через VPN' : 'Напрямую', onclick: (e) => { e.stopPropagation(); moveGroup(g, to); } }, svg(ICON_SWAP))
+    : h('span', { class: 'bicon lock' }, svg(ICON_LOCK)));
+  el.addEventListener('click', () => openGroupModal(g.name));
+  if (canMove) dragSource(el, { type: 'group', g, from: colOf(g.route) });
+  return el;
+}
+
+function itemCard(it) {
+  const to = it.route === 'vpn' ? 'direct' : 'vpn';
+  const el = h('div', { class: 'bcard custom', draggable: 'true', title: 'Перетащите в другую колонку' },
+    h('span', { class: 'bicon' }, svg(it.kind === 'app' ? ICON_APP : ICON_GLOBE)),
+    h('div', { class: 'btext' }, h('b', {}, it.label), h('span', {}, it.detail)),
+    h('button', { class: 'icon-btn', title: to === 'vpn' ? 'Через VPN' : 'Напрямую', onclick: () => moveItem(it, to) }, svg(ICON_SWAP)),
+    h('button', { class: 'icon-btn danger', title: 'Удалить', onclick: () => deleteItem(it) }, svg(ICON_TRASH)));
+  dragSource(el, { type: 'item', it, from: it.route });
+  return el;
+}
+
+function dragSource(el, info) {
+  el.addEventListener('dragstart', (e) => {
+    dragInfo = info;
+    el.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', info.type);
+  });
+  el.addEventListener('dragend', () => {
+    dragInfo = null;
+    el.classList.remove('dragging');
+    $$('.col').forEach((c) => c.classList.remove('drop'));
+  });
+}
+
+$$('.col').forEach((col) => {
+  const route = col.dataset.route;
+  col.addEventListener('dragover', (e) => {
+    if (!dragInfo || dragInfo.from === route) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    col.classList.add('drop');
+  });
+  col.addEventListener('dragleave', (e) => { if (!col.contains(e.relatedTarget)) col.classList.remove('drop'); });
+  col.addEventListener('drop', (e) => {
+    e.preventDefault();
+    col.classList.remove('drop');
+    const info = dragInfo;
+    dragInfo = null;
+    if (!info || info.from === route) return;
+    if (info.type === 'group') moveGroup(info.g, route);
+    else moveItem(info.it, route);
+  });
+});
+$('#groupSearch').addEventListener('input', renderBoard);
+
+async function moveGroup(g, route) {
+  const option = route === 'vpn' ? g.vpn : g.direct;
+  if (!option) return toast('У группы «' + g.name + '» нет варианта ' + (route === 'vpn' ? 'через VPN' : '«напрямую»'), 'warn');
+  await chooseGroupOption(g.name, option);
+}
+
+async function chooseGroupOption(name, option) {
+  try {
+    BOARD = await api('/board/group', { method: 'PUT', body: { name, option } });
+    renderBoard();
+    if ($('#grpModal').open) renderGroupModal();
+    loadGroups();
+  } catch (e) { toast(e.message, 'err'); }
+}
+
+// свои сайты и программы меняют конфиг: редактор не должен держать старую копию
+function configLocked() {
+  if (!cfgDirty()) return false;
+  toast('Сначала сохраните или отмените изменения на вкладке «Конфиг»', 'warn');
+  return true;
+}
+
+function afterDeskChange(d, msg) {
+  BOARD = d.board;
+  renderBoard();
+  loadConfig();
+  toast(msg + (d.restarted ? '. Переподключаюсь' : ''), 'ok');
+}
+
+async function moveItem(it, route) {
+  if (configLocked()) return;
+  try {
+    const d = await api('/board/items/' + encodeURIComponent(it.id), { method: 'PUT', body: { route } });
+    afterDeskChange(d, it.label + (route === 'vpn' ? ': через VPN' : ': напрямую'));
+  } catch (e) { toast(e.message, 'err'); }
+}
+
+async function deleteItem(it) {
+  if (configLocked()) return;
+  if (!confirm('Убрать «' + it.label + '» из правил?')) return;
+  try {
+    const d = await api('/board/items/' + encodeURIComponent(it.id), { method: 'DELETE' });
+    afterDeskChange(d, 'Удалено: ' + it.label);
+  } catch (e) { toast(e.message, 'err'); }
+}
+
+// ---------- выбор сервера в группе ----------
+let grpName = null;
+function openGroupModal(name) {
+  grpName = name;
+  renderGroupModal();
+  $('#grpModal').showModal();
+}
+function renderGroupModal() {
+  const g = BOARD && BOARD.groups.find((x) => x.name === grpName);
+  if (!g) { $('#grpModal').close(); return; }
+  $('#grpTitle').textContent = g.name;
+  $('#grpNote').textContent = BOARD.running ? 'Куда идёт трафик этой группы:' : 'VPN выключен: выбор применится при подключении.';
+  $('#grpOpts').replaceChildren(...g.options.map((o) =>
+    h('button', { class: 'opt' + (o === g.now ? ' on' : ''), title: o, onclick: () => chooseGroupOption(g.name, o) },
+      h('span', { class: 'oname' }, OPT_TEXT[o] || o), delayEl(o))));
+  $('#grpPing').disabled = !BOARD.running;
+}
+$('#grpClose').addEventListener('click', () => $('#grpModal').close());
+$('#grpPing').addEventListener('click', async (e) => {
+  await loadGroups();
+  await pingGroup(grpName, e.currentTarget);
+  renderGroupModal();
+});
+
+// ---------- «+»: свой сайт или программа ----------
+const addModal = $('#addModal');
+let addState = { kind: 'site', route: 'vpn', found: null, foundFor: '', procs: null };
+
+$$('[data-add]').forEach((b) => b.addEventListener('click', () => openAdd(b.dataset.add)));
+
+function openAdd(route) {
+  if (configLocked()) return;
+  addState = { kind: 'site', route, found: null, foundFor: '', procs: null };
+  $('#siteInput').value = '';
+  $('#siteExtra').value = '';
+  $('#appInput').value = '';
+  $('#appSearch').value = '';
+  $('#siteResult').replaceChildren();
+  setAddResult('');
+  renderAddTabs();
+  addModal.showModal();
+  $('#siteInput').focus();
+}
+function renderAddTabs() {
+  $$('#addKind button').forEach((b) => b.classList.toggle('on', b.dataset.k === addState.kind));
+  $$('#addRoute button').forEach((b) => b.classList.toggle('on', b.dataset.r === addState.route));
+  $('#addSite').hidden = addState.kind !== 'site';
+  $('#addApp').hidden = addState.kind !== 'app';
+  if (addState.kind === 'app' && !addState.procs) loadProcs();
+}
+function setAddResult(text, fail) {
+  const r = $('#addResult');
+  r.className = 'result' + (text ? (fail ? ' fail' : ' ok') : '');
+  r.textContent = text;
+}
+$$('#addKind button').forEach((b) => b.addEventListener('click', () => { addState.kind = b.dataset.k; setAddResult(''); renderAddTabs(); }));
+$$('#addRoute button').forEach((b) => b.addEventListener('click', () => { addState.route = b.dataset.r; renderAddTabs(); }));
+$('#addClose').addEventListener('click', () => addModal.close());
+
+async function findSite() {
+  const q = $('#siteInput').value.trim();
+  if (!q) { setAddResult('Введите адрес сайта', true); return false; }
+  const btn = $('#siteFind');
+  busy(btn, true);
+  setAddResult('');
+  try {
+    const d = await api('/lookup?site=' + encodeURIComponent(q));
+    addState.found = d.result;
+    addState.foundFor = q;
+    renderFound(d.warning);
+    return true;
+  } catch (e) {
+    addState.found = null;
+    setAddResult(e.message, true);
+    return false;
+  } finally { busy(btn, false); }
+}
+
+function renderFound(warning) {
+  const f = addState.found;
+  const rows = [h('label', {}, h('input', { type: 'checkbox', checked: true, disabled: true }),
+    h('span', {}, 'Домен ', h('b', {}, f.domain), ' и все его поддомены'))];
+  if (f.geosite) {
+    const more = f.geosite.count - f.geosite.sample.length;
+    rows.push(h('label', {}, h('input', { type: 'checkbox', id: 'useGeosite', checked: f.geosite.contains }),
+      h('span', {}, 'Готовый список «' + f.geosite.name + '»: доменов ' + f.geosite.count + ', обновляется сам' +
+        (f.geosite.contains ? '' : '. В нём нет ' + f.domain + ': проверьте, тот ли это сайт'),
+      h('div', { class: 'sample' }, f.geosite.sample.join('  ') + (more > 0 ? '  и ещё ' + more : '')))));
+  }
+  if (f.geoip) {
+    rows.push(h('label', {}, h('input', { type: 'checkbox', id: 'useGeoip', checked: true }),
+      h('span', {}, 'IP-адреса «' + f.geoip.name + '»: подсетей ' + f.geoip.count + ', для приложений, которые ходят без домена')));
+  }
+  if (!f.geosite) {
+    rows.push(h('div', { class: 'muted small' }, 'Готового списка для этого сайта нет. Добавится домен со всеми поддоменами, другие его домены можно дописать ниже.'));
+  }
+  if (warning) rows.push(h('div', { class: 'muted small' }, warning));
+  $('#siteResult').replaceChildren(h('div', { class: 'found' }, ...rows));
+}
+
+$('#siteFind').addEventListener('click', findSite);
+$('#siteInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); findSite(); } });
+
+async function loadProcs() {
+  $('#procList').replaceChildren(h('div', { class: 'empty small' }, 'Смотрю запущенные программы...'));
+  try { addState.procs = await api('/processes'); } catch (e) { addState.procs = []; }
+  renderProcs();
+}
+function renderProcs() {
+  const q = $('#appSearch').value.trim().toLowerCase();
+  const cur = $('#appInput').value.trim().toLowerCase();
+  const list = (addState.procs || []).filter((p) => !q || p.name.toLowerCase().includes(q) || p.path.toLowerCase().includes(q));
+  $('#procList').replaceChildren(...(list.length
+    ? list.slice(0, 200).map((p) => h('button', {
+      class: 'proc' + (p.name.toLowerCase() === cur ? ' on' : ''), title: p.path,
+      onclick: () => { $('#appInput').value = p.name; renderProcs(); },
+    }, h('b', {}, p.name), h('span', {}, p.path)))
+    : [h('div', { class: 'empty small' }, q ? 'Ничего не найдено' : 'Запущенных программ не нашлось')]));
+}
+$('#appSearch').addEventListener('input', renderProcs);
+$('#appInput').addEventListener('input', renderProcs);
+$('#appFile').addEventListener('change', (e) => {
+  const f = e.target.files[0];
+  if (f) $('#appInput').value = f.name;
+  e.target.value = '';
+  renderProcs();
+});
+
+$('#addConfirm').addEventListener('click', async (e) => {
+  const btn = e.currentTarget;
+  let body;
+  if (addState.kind === 'site') {
+    const q = $('#siteInput').value.trim();
+    if (!q) return setAddResult('Введите адрес сайта', true);
+    // не искали или адрес поменяли - ищем и сразу добавляем с найденным
+    if (!addState.found || addState.foundFor !== q) {
+      if (!(await findSite())) return;
+    }
+    const f = addState.found;
+    const gs = $('#useGeosite');
+    const gi = $('#useGeoip');
+    body = {
+      kind: 'site', value: f.domain, route: addState.route,
+      domains: $('#siteExtra').value.split(/[\s,;]+/).filter(Boolean),
+      geosite: f.geosite && gs && gs.checked ? f.geosite.name : '',
+      geoip: f.geoip && gi && gi.checked ? f.geoip.name : '',
+    };
+  } else {
+    const v = $('#appInput').value.trim();
+    if (!v) return setAddResult('Выберите программу из списка или впишите имя .exe', true);
+    body = { kind: 'app', value: v, route: addState.route };
+  }
+  busy(btn, true);
+  setAddResult('Проверяю и сохраняю...');
+  try {
+    const d = await api('/board/items', { method: 'POST', body });
+    addModal.close();
+    afterDeskChange(d, 'Добавлено ' + (addState.route === 'vpn' ? 'через VPN' : 'напрямую'));
+  } catch (err) { setAddResult(err.message, true); }
+  busy(btn, false);
+});
 
 // ---------- редактор конфига ----------
 const ta = $('#cfgText');
@@ -622,7 +992,7 @@ async function pollLogs() {
     }
     logSeq = d.last;
   } catch (e) { /* оверлей */ }
-  setTimeout(pollLogs, page === 'logs' ? 800 : 2000);
+  schedule('logs', pollLogs, document.hidden ? 20000 : page === 'logs' ? 800 : 2000);
 }
 
 function scrollLogs(force) {
@@ -674,6 +1044,7 @@ function fillSettings(s) {
   $('#setStack').value = s.tunStack;
   $('#setStrict').checked = s.strictRoute;
   $('#setRoute').value = s.tunRoute || 'auto';
+  $('#setUpdCheck').checked = s.updateCheck !== false;
   $('#setPort').value = s.controllerPort;
 }
 
@@ -696,6 +1067,7 @@ $('#setConnect').addEventListener('change', (e) => saveSetting({ connectOnLaunch
 $('#setStack').addEventListener('change', (e) => saveSetting({ tunStack: e.target.value }, e.target));
 $('#setStrict').addEventListener('change', (e) => saveSetting({ strictRoute: e.target.checked }, e.target));
 $('#setRoute').addEventListener('change', (e) => saveSetting({ tunRoute: e.target.value }, e.target));
+$('#setUpdCheck').addEventListener('change', (e) => saveSetting({ updateCheck: e.target.checked }, e.target));
 $('#setPort').addEventListener('change', (e) => saveSetting({ controllerPort: parseInt(e.target.value, 10) || 0 }, e.target));
 
 function renderCoreBlock() {
@@ -925,7 +1297,7 @@ $('#srvAddConfirm').addEventListener('click', async (e) => {
 });
 
 // ---------- старт ----------
-setInterval(() => { if (S && S.status === 'running') $('#heroSub').textContent = 'В сети ' + fmtDuration(Date.now() - S.startedAt); }, 1000);
+setInterval(() => { if (!document.hidden && S && S.status === 'running') $('#heroSub').textContent = 'В сети ' + fmtDuration(Date.now() - S.startedAt); }, 1000);
 pollState();
 pollLogs();
 loadConfig();
