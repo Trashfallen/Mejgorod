@@ -113,17 +113,30 @@ func parseServersInput(text string) ([]Server, []string) {
 		}
 		return out, errs
 	}
+	return parseYAMLProxyList(text)
+}
+
+// proxyFieldRe - в блоке прокси есть хотя бы type или server (отсекает мусор,
+// который splitYAMLProxies мог принять за элемент списка).
+var proxyFieldRe = regexp.MustCompile(`(?m)^\s*-?\s*(?:type|server):`)
+
+// parseYAMLProxyList разбирает блок YAML-прокси (как в разделе proxies: конфига
+// или в ответе подписки) на серверы. Используется и вставкой из буфера,
+// и импортом подписки.
+func parseYAMLProxyList(text string) ([]Server, []string) {
 	items, err := splitYAMLProxies(text)
 	if err != nil {
 		return nil, []string{err.Error()}
 	}
+	var out []Server
+	var errs []string
 	for _, it := range items {
 		name := yamlItemName(it)
 		if name == "" {
 			errs = append(errs, "в блоке YAML нет name")
 			continue
 		}
-		if !regexp.MustCompile(`(?m)^\s*-?\s*(?:type|server):`).MatchString(it) && !strings.Contains(it, "type:") {
+		if !proxyFieldRe.MatchString(it) && !strings.Contains(it, "type:") {
 			errs = append(errs, name+": нет type/server")
 			continue
 		}

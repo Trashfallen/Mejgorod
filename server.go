@@ -68,6 +68,8 @@ func (a *App) startServer() error {
 	mux.HandleFunc("GET /api/template", a.auth(a.hTemplate))
 	mux.HandleFunc("GET /api/servers", a.auth(a.hServers))
 	mux.HandleFunc("POST /api/servers", a.auth(a.hAddServers))
+	mux.HandleFunc("POST /api/servers/subscription/preview", a.auth(a.hSubPreview))
+	mux.HandleFunc("POST /api/servers/subscription/import", a.auth(a.hSubImport))
 	mux.HandleFunc("PUT /api/servers/active", a.auth(a.hServerActive))
 	mux.HandleFunc("PUT /api/servers/group", a.auth(a.hServerGroup))
 	mux.HandleFunc("PUT /api/servers/{id}", a.auth(a.hRenameServer))
@@ -576,6 +578,12 @@ func (a *App) hAddServers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	parsed, errs := parseServersInput(in.Text)
+	a.addServers(w, parsed, errs)
+}
+
+// addServers - общий хвост импорта: имена без конфликтов, проверка ядром,
+// сохранение. Используют и вставка ссылок/YAML, и импорт подписки.
+func (a *App) addServers(w http.ResponseWriter, parsed []Server, errs []string) {
 	if errs == nil {
 		errs = []string{} // в JSON массив, а не null
 	}

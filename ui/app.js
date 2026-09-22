@@ -1475,9 +1475,21 @@ async function createProfile(copy) {
 }
 $('#profCopy').addEventListener('click', () => createProfile(true));
 $('#profEmpty').addEventListener('click', () => createProfile(false));
+function srvImportTab(kind) {
+  $$('#srvImportKind button').forEach((b) => b.classList.toggle('on', b.dataset.k === kind));
+  $('#srvPaneLink').hidden = kind !== 'link';
+  $('#srvPaneSub').hidden = kind !== 'sub';
+  (kind === 'sub' ? $('#subUrl') : $('#srvInput')).focus();
+}
+$$('#srvImportKind button').forEach((b) => b.addEventListener('click', () => srvImportTab(b.dataset.k)));
+
 async function openImport() {
   $('#srvAddResult').replaceChildren();
   $('#srvAddResult').className = 'result';
+  $('#subFindResult').replaceChildren();
+  $('#subFindResult').className = 'result';
+  $('#subListWrap').hidden = true;
+  srvImportTab('link');
   srvModal.showModal();
   const inp = $('#srvInput');
   inp.focus();
@@ -1516,6 +1528,71 @@ $('#srvAddConfirm').addEventListener('click', async (e) => {
       srvAutoPinged = false;
       loadServers();
       if (!d.errors.length) setTimeout(() => srvModal.close(), 500);
+    }
+  } catch (err) { toast(err.message, 'err'); }
+  busy(btn, false);
+});
+
+// ---------- импорт подписки ----------
+let subFound = null; // последний результат /subscription/preview
+
+function subRow(s, i) {
+  return h('label', { class: 'sub-row' },
+    h('input', { type: 'checkbox', class: 'subChk', 'data-i': i, checked: true }),
+    h('div', { class: 'btext' }, h('b', {}, s.name), h('span', {}, srvMeta(s))));
+}
+
+$('#subFind').addEventListener('click', async (e) => {
+  const url = $('#subUrl').value.trim();
+  if (!url) return toast('Вставьте ссылку на подписку', 'warn');
+  const btn = e.currentTarget;
+  busy(btn, true);
+  const res = $('#subFindResult');
+  res.className = 'result';
+  res.replaceChildren();
+  $('#subListWrap').hidden = true;
+  try {
+    const d = await api('/servers/subscription/preview', { method: 'POST', body: { url } });
+    subFound = d.servers;
+    $('#subList').replaceChildren(...subFound.map(subRow));
+    $('#subAll').checked = true;
+    $('#subCount').textContent = 'Найдено: ' + subFound.length;
+    $('#subListWrap').hidden = false;
+    $('#subImportResult').replaceChildren();
+    $('#subImportResult').className = 'result';
+    if (d.errors && d.errors.length) { res.className = 'result fail'; res.replaceChildren(...d.errors.map((er) => h('div', {}, er))); }
+  } catch (err) {
+    subFound = null;
+    res.className = 'result fail';
+    res.textContent = err.message;
+  }
+  busy(btn, false);
+});
+
+$('#subAll').addEventListener('change', (e) => {
+  $$('.subChk').forEach((c) => { c.checked = e.target.checked; });
+});
+
+$('#subImportConfirm').addEventListener('click', async (e) => {
+  if (!subFound || !subFound.length) return;
+  const items = [...document.querySelectorAll('.subChk')].filter((c) => c.checked).map((c) => subFound[+c.dataset.i]);
+  if (!items.length) return toast('Отметьте хотя бы один сервер', 'warn');
+  const btn = e.currentTarget;
+  busy(btn, true);
+  try {
+    const d = await api('/servers/subscription/import', { method: 'POST', body: { items } });
+    d.errors = d.errors || [];
+    d.added = d.added || [];
+    const box = $('#subImportResult');
+    box.className = 'result ' + (d.errors.length ? 'fail' : 'ok');
+    box.replaceChildren();
+    if (d.added.length) box.append(h('div', { class: 'ok' }, 'Добавлено: ' + d.added.join(', ')));
+    for (const er of d.errors) box.append(h('div', {}, er));
+    if (d.added.length) {
+      toast('Импортировано: ' + d.added.join(', ') + (d.restarted ? '. Переподключаюсь' : ''), 'ok');
+      srvAutoPinged = false;
+      loadServers();
+      if (!d.errors.length) setTimeout(() => srvModal.close(), 700);
     }
   } catch (err) { toast(err.message, 'err'); }
   busy(btn, false);

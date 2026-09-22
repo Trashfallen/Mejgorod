@@ -361,16 +361,40 @@
 
 <dialog class="modal modal-small" id="srvModal">
   <div class="modal-head">
-    <h3>Импорт из ссылки vless</h3>
+    <h3>Импорт серверов</h3>
     <button class="btn small" id="srvModalClose">Закрыть</button>
   </div>
   <div class="modal-body">
-    <p class="muted small">Вставьте ссылку <code>vless://</code>. Можно несколько, по одной в строке.</p>
-    <textarea id="srvInput" spellcheck="false" placeholder="vless://uuid@host:443?type=tcp&amp;security=reality&amp;pbk=...&amp;sni=...#Название"></textarea>
-    <div class="result" id="srvAddResult"></div>
-    <div class="modal-actions">
-      <button class="btn" id="srvPasteBtn">Вставить из буфера</button>
-      <button class="btn primary" id="srvAddConfirm">Импортировать</button>
+    <div class="seg" id="srvImportKind"><button data-k="link" class="on">Ссылка vless</button><button data-k="sub">Подписка</button></div>
+
+    <div class="import-pane" id="srvPaneLink">
+      <p class="muted small">Вставьте ссылку <code>vless://</code>. Можно несколько, по одной в строке.</p>
+      <textarea id="srvInput" spellcheck="false" placeholder="vless://uuid@host:443?type=tcp&amp;security=reality&amp;pbk=...&amp;sni=...#Название"></textarea>
+      <div class="result" id="srvAddResult"></div>
+      <div class="modal-actions">
+        <button class="btn" id="srvPasteBtn">Вставить из буфера</button>
+        <button class="btn primary" id="srvAddConfirm">Импортировать</button>
+      </div>
+    </div>
+
+    <div class="import-pane" id="srvPaneSub" hidden>
+      <p class="muted small">Ссылка на подписку: страница со списком серверов, которую даёт провайдер VPN.</p>
+      <div class="add-row">
+        <input class="text" id="subUrl" spellcheck="false" placeholder="https://host/sub/xxxxxxxx">
+        <button class="btn primary" id="subFind">Найти серверы</button>
+      </div>
+      <div class="result" id="subFindResult"></div>
+      <div id="subListWrap" hidden>
+        <div class="sub-toolbar">
+          <label class="sub-row" style="padding:0"><input type="checkbox" id="subAll" checked><b>Выбрать все</b></label>
+          <span class="muted small" id="subCount"></span>
+        </div>
+        <div class="sub-list" id="subList"></div>
+        <div class="result" id="subImportResult"></div>
+        <div class="modal-actions">
+          <button class="btn primary" id="subImportConfirm">Импортировать выбранное</button>
+        </div>
+      </div>
     </div>
   </div>
 </dialog>
