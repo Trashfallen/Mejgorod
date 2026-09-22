@@ -30,12 +30,15 @@ type App struct {
 	port   int
 	server *http.Server
 
-	mu          sync.Mutex
-	coreVersion string
-	cfgCache    cfgSnapshot
-	lastUI      atomic.Int64 // когда окно последний раз спрашивало состояние (unix ns)
-	quitOnce    sync.Once
-	quitFn      func()
+	mu           sync.Mutex
+	coreVersion  string
+	cfgCache     cfgSnapshot
+	winMu        sync.Mutex
+	winOwned     bool         // окно открыто этим запуском программы
+	adoptWindows bool         // запущены после обновления: открытое окно - наше
+	lastUI       atomic.Int64 // когда окно последний раз спрашивало состояние (unix ns)
+	quitOnce     sync.Once
+	quitFn       func()
 }
 
 // newApp: token задаётся при перезапуске после обновления, чтобы открытое
@@ -176,6 +179,7 @@ func (a *App) writeInstance() error {
 
 // showExisting - второй запуск программы: просим первую копию открыть окно.
 func showExisting(p Paths) error {
+	allowForeground()
 	var lastErr error
 	for i := 0; i < 15; i++ {
 		b, err := os.ReadFile(p.Instance)

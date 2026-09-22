@@ -84,6 +84,7 @@ func main() {
 		fatalBox(err.Error())
 		return
 	}
+	app.adoptWindows = *token != ""
 	if err := app.startServer(); err != nil {
 		fatalBox("Не удалось запустить интерфейс:\n" + err.Error())
 		return

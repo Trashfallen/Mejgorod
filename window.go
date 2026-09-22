@@ -38,7 +38,24 @@ func (a *App) windowURL() string {
 	return fmt.Sprintf("http://127.0.0.1:%d/#t=%s", a.port, a.token)
 }
 
+// openWindow показывает окно программы. Уже открытое - выводит вперёд,
+// окна от прошлого запуска (у них устаревший токен) закрывает.
 func (a *App) openWindow() {
+	a.winMu.Lock()
+	defer a.winMu.Unlock()
+	wins := appWindows()
+	if len(wins) > 0 && (a.winOwned || a.adoptWindows) {
+		a.winOwned = true
+		focusWindow(wins[0])
+		for _, w := range wins[1:] {
+			closeWindow(w)
+		}
+		return
+	}
+	for _, w := range wins {
+		closeWindow(w)
+	}
+	a.winOwned = true
 	url := a.windowURL()
 	if edge := findEdge(); edge != "" {
 		cmd := exec.Command(edge,
@@ -51,6 +68,7 @@ func (a *App) openWindow() {
 		)
 		if err := cmd.Start(); err == nil {
 			go cmd.Wait()
+			go a.tagNewWindows()
 			return
 		}
 	}
