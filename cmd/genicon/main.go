@@ -16,7 +16,7 @@ func main() {
 	if err := os.MkdirAll(out, 0o755); err != nil {
 		panic(err)
 	}
-	if err := os.WriteFile(filepath.Join(out, "icon.png"), icon.PNG(256, icon.On), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(out, "icon.png"), icon.PNG(256, icon.Off), 0o644); err != nil {
 		panic(err)
 	}
 }

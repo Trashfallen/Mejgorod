@@ -123,6 +123,32 @@ const STATUS_TEXT = {
   stopped: 'Отключено', starting: 'Подключение', running: 'Подключено', stopping: 'Отключение', error: 'Ошибка',
 };
 
+// Кнопка питания: человечек поднимает флаг нужного цвета. Между цветами -
+// гифка перехода (играет один раз с начала), в покое - статичная картинка.
+// Гифка зациклена (иначе на медленном "starting" ей нечем тянуть время), поэтому
+// на паузе после первого прохода подменяем её на статичную - не будет ни
+// зацикливания обратно, ни лишней анимации, пока ничего не меняется.
+let powerColor = 'white'; // сейчас показано: white | green | red
+let powerFirst = true; // при первом рендере красим сразу, без анимации перехода
+let powerSwapTimer = null;
+const POWER_TARGET = { stopped: 'white', running: 'green', starting: 'green', stopping: 'white', error: 'red' };
+const POWER_HOLD_MS = 1400; // все 6 гифок ~2.18с, дальше идут по кругу; кадр не меняется с 1.05 по 2.18с
+
+function updatePowerArt(st) {
+  clearTimeout(powerSwapTimer);
+  const target = POWER_TARGET[st] || 'white';
+  const img = $('#powerArt');
+  const idle = '/power/idle-' + target + '.png';
+  if (powerFirst || target === powerColor) {
+    img.src = idle;
+  } else {
+    img.src = '/power/flag_' + powerColor + '_to_' + target + '.gif?t=' + Date.now();
+    powerSwapTimer = setTimeout(() => { img.src = idle; }, POWER_HOLD_MS);
+  }
+  powerColor = target;
+  powerFirst = false;
+}
+
 // Свёрнутое окно почти не опрашивает программу; при разворачивании - сразу обновляемся.
 const timers = {};
 function schedule(name, fn, ms) {
@@ -191,6 +217,7 @@ function renderState() {
   renderUpdatePrompt();
 
   if (st !== prevStatus) {
+    updatePowerArt(st);
     if (page === 'groups') { loadGroups(); loadBoard(); }
     if (page === 'home') loadServers();
     if (page === 'servers') loadServers();
