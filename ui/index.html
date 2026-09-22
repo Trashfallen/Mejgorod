@@ -63,15 +63,22 @@
         </button>
         <div class="hero-status" id="heroStatus">Отключено</div>
         <div class="hero-sub" id="heroSub">Нажмите, чтобы подключиться</div>
-        <button class="hero-server" id="heroServer" data-goto="servers" hidden>
-          <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01"/><path d="M7 16.5h.01"/></svg>
-          <span id="heroServerName"></span>
-        </button>
         <div class="hero-progress" id="heroProgress" hidden><div></div></div>
         <div class="hero-error" id="heroError" hidden></div>
       </div>
 
       <div class="notice" id="homeNotice" hidden></div>
+
+      <div class="picks">
+        <label class="pick">
+          <span class="pick-label"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01"/><path d="M7 16.5h.01"/></svg>Сервер</span>
+          <select id="homeServer"></select>
+        </label>
+        <label class="pick">
+          <span class="pick-label"><svg viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5 9-5z"/><path d="m3 13 9 5 9-5"/></svg>Профиль</span>
+          <select id="homeProfile"></select>
+        </label>
+      </div>
 
       <div class="stats">
         <div class="stat">
@@ -90,15 +97,6 @@
           <span class="stat-label"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M5 6h14"/><path d="M5 18h14"/></svg>Соединения</span>
           <b id="stConns">0</b>
         </div>
-      </div>
-
-      <div class="card">
-        <div class="card-head">
-          <h3>Группы</h3>
-          <button class="link" data-goto="groups">Все группы и пинг</button>
-        </div>
-        <div class="quick" id="quickGroups"></div>
-        <div class="empty small" id="quickEmpty">Подключитесь, чтобы выбирать серверы для сервисов</div>
       </div>
     </section>
 
@@ -158,8 +156,11 @@
     <!-- КОНФИГ -->
     <section class="page page-fill" id="page-config">
       <header class="page-head">
-        <h2>Конфиг <span class="badge warn" id="cfgDirty" hidden>не сохранён</span></h2>
+        <h2>Конфиг <span class="cfg-profile" id="cfgProfileName"></span> <span class="badge warn" id="cfgDirty" hidden>не сохранён</span></h2>
         <div class="tools">
+          <button class="btn" id="cfgProfiles" title="Профили: несколько конфигов, переключаются на главной">
+            <svg viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5 9-5z"/><path d="m3 13 9 5 9-5"/></svg>Профили
+          </button>
           <button class="btn" id="cfgTemplate" title="Загрузить готовый конфиг">
             <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>Шаблон
           </button>
@@ -425,6 +426,37 @@
     <div class="result" id="addResult"></div>
     <div class="modal-actions">
       <button class="btn primary" id="addConfirm">Добавить</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="modal modal-small" id="profModal">
+  <div class="modal-head">
+    <h3>Профили</h3>
+    <button class="btn small" id="profClose">Закрыть</button>
+  </div>
+  <div class="modal-body">
+    <p class="muted small">Профиль - отдельный конфиг со своими правилами. Переключаются на главной, правится активный.</p>
+    <div class="prof-list" id="profList"></div>
+    <div class="add-row">
+      <input class="text" id="profNewName" placeholder="Название нового профиля" spellcheck="false">
+      <button class="btn" id="profCopy" title="Новый профиль - копия текущего">Копия текущего</button>
+      <button class="btn" id="profEmpty">Пустой</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="modal modal-small" id="srvEditModal">
+  <div class="modal-head">
+    <h3 id="srvEditTitle">Настройка сервера</h3>
+    <button class="btn small" id="srvEditClose">Закрыть</button>
+  </div>
+  <div class="modal-body">
+    <p class="muted small" id="srvEditNote">Параметры сервера в формате mihomo: адрес, порт, uuid, SNI, fingerprint, flow, транспорт и т.д. Имя меняется кнопкой «Переименовать».</p>
+    <textarea class="yaml-edit" id="srvEditYAML" spellcheck="false"></textarea>
+    <div class="result" id="srvEditResult"></div>
+    <div class="modal-actions">
+      <button class="btn primary" id="srvEditSave">Сохранить</button>
     </div>
   </div>
 </dialog>

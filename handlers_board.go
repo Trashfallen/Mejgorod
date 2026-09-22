@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -198,12 +197,7 @@ func (a *App) saveDesk(w http.ResponseWriter, r *http.Request, src string, rules
 		writeErr(w, 400, "ядро не приняло правило: "+check.Output)
 		return
 	}
-	tmp := a.paths.UserConfig + ".tmp"
-	if err := os.WriteFile(tmp, []byte(text), 0o644); err != nil {
-		writeErr(w, 500, err.Error())
-		return
-	}
-	if err := os.Rename(tmp, a.paths.UserConfig); err != nil {
+	if err := a.writeConfig(text); err != nil {
 		writeErr(w, 500, err.Error())
 		return
 	}

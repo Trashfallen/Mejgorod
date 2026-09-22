@@ -82,6 +82,13 @@ func (a *App) startServer() error {
 	mux.HandleFunc("DELETE /api/board/items/{id}", a.auth(a.hBoardDelete))
 	mux.HandleFunc("GET /api/lookup", a.auth(a.hLookup))
 	mux.HandleFunc("GET /api/processes", a.auth(a.hProcesses))
+	mux.HandleFunc("GET /api/profiles", a.auth(a.hProfiles))
+	mux.HandleFunc("POST /api/profiles", a.auth(a.hProfileCreate))
+	mux.HandleFunc("POST /api/profiles/activate", a.auth(a.hProfileActivate))
+	mux.HandleFunc("PUT /api/profiles/{name}", a.auth(a.hProfileRename))
+	mux.HandleFunc("DELETE /api/profiles/{name}", a.auth(a.hProfileDelete))
+	mux.HandleFunc("GET /api/servers/{id}/yaml", a.auth(a.hServerYAML))
+	mux.HandleFunc("PUT /api/servers/{id}/yaml", a.auth(a.hServerSetYAML))
 	mux.HandleFunc("POST /api/open", a.auth(a.hOpen))
 	mux.HandleFunc("POST /api/quit", a.auth(a.hQuit))
 	mux.HandleFunc("/api/mihomo/", a.auth(a.hMihomo))
@@ -146,6 +153,7 @@ type stateResp struct {
 	} `json:"core"`
 	Download DownloadState `json:"download"`
 	Update   AppUpdate     `json:"update"`
+	Profile  string        `json:"profile"`
 	Config   ConfigInfo    `json:"config"`
 	App      struct {
 		Version string `json:"version"`
@@ -166,6 +174,7 @@ func (a *App) state() stateResp {
 	s.Core.Version = a.CoreVersion()
 	s.Download = a.fetcher.State()
 	s.Update = a.updater.State()
+	s.Profile = a.settings.Get().ActiveProfile
 	s.Config = a.configInfo()
 	s.App.Version = appVersion
 	s.App.DataDir = a.paths.Data
@@ -238,12 +247,12 @@ func (a *App) checkConfig(ctx context.Context, text string) checkResult {
 }
 
 func (a *App) hGetConfig(w http.ResponseWriter, r *http.Request) {
-	b, err := os.ReadFile(a.paths.UserConfig)
+	b, err := os.ReadFile(a.configPath())
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		writeErr(w, 500, err.Error())
 		return
 	}
-	writeJSON(w, 200, map[string]any{"text": string(b), "exists": err == nil})
+	writeJSON(w, 200, map[string]any{"text": string(b), "exists": err == nil, "profile": a.settings.Get().ActiveProfile})
 }
 
 func (a *App) hPutConfig(w http.ResponseWriter, r *http.Request) {
@@ -259,12 +268,7 @@ func (a *App) hPutConfig(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 400, "конфиг пустой")
 		return
 	}
-	tmp := a.paths.UserConfig + ".tmp"
-	if err := os.WriteFile(tmp, []byte(in.Text), 0o644); err != nil {
-		writeErr(w, 500, err.Error())
-		return
-	}
-	if err := os.Rename(tmp, a.paths.UserConfig); err != nil {
+	if err := a.writeConfig(in.Text); err != nil {
 		writeErr(w, 500, err.Error())
 		return
 	}
@@ -532,11 +536,32 @@ func (a *App) serversResp() map[string]any {
 		"active":  snap.Active,
 		"running": a.core.Status() == stRunning,
 	}
+	// из чего выбирать на главной: варианты основной группы (авто-группы и серверы)
+	choices := []string{}
 	if a.core.Status() == stRunning {
-		if now, _, err := a.groupState(a.mainGroup()); err == nil {
+		if now, all, err := a.groupState(a.mainGroup()); err == nil {
 			resp["current"] = now
+			choices = all
 		}
 	}
+	if len(choices) == 0 {
+		main := a.mainGroup()
+		for _, g := range parseGroupsFull(src) {
+			if g.Name != main {
+				continue
+			}
+			choices = append(choices, g.Proxies...)
+			if g.IncludeAll || len(g.Proxies) == 0 {
+				for _, s := range desk {
+					choices = append(choices, s.Name)
+				}
+				for _, s := range cfg {
+					choices = append(choices, s.Name)
+				}
+			}
+		}
+	}
+	resp["choices"] = choices
 	return resp
 }
 

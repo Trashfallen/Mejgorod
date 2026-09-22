@@ -103,8 +103,8 @@ function go(p) {
   page = p;
   $$('.nav-item').forEach((b) => b.classList.toggle('active', b.dataset.page === p));
   $$('.page').forEach((s) => s.classList.toggle('active', s.id === 'page-' + p));
-  if (p === 'groups' || p === 'home') loadGroups();
-  if (p === 'groups') loadBoard();
+  if (p === 'groups') { loadGroups(); loadBoard(); }
+  if (p === 'home') { loadServers(); loadProfiles(); }
   if (p === 'logs') { $('#navLogDot').hidden = true; scrollLogs(true); loadCoreLevel(); }
   if (p === 'settings') loadSettings();
   if (p === 'servers') { srvAutoPinged = false; loadServers(); }
@@ -133,8 +133,8 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) return;
   pollState();
   pollLogs();
-  if (page === 'groups' || page === 'home') loadGroups();
-  if (page === 'groups') loadBoard();
+  if (page === 'groups') { loadGroups(); loadBoard(); }
+  if (page === 'home' || page === 'servers') loadServers();
 });
 
 let loadedVersion = '';
@@ -171,9 +171,6 @@ function renderState() {
   prog.hidden = !(st === 'starting' && S.download.active && S.download.progress >= 0);
   if (!prog.hidden) prog.firstElementChild.style.width = Math.round(S.download.progress * 100) + '%';
 
-  const hs = $('#heroServer');
-  hs.hidden = !S.server;
-  $('#heroServerName').textContent = S.server ? (st === 'running' ? 'Сервер: ' : 'Будет выбран: ') + S.server : '';
 
   const err = $('#heroError');
   err.hidden = st !== 'error' || !S.error;
@@ -193,8 +190,8 @@ function renderState() {
   renderAppUpdate();
 
   if (st !== prevStatus) {
-    if (st === 'running' || prevStatus === 'running' || prevStatus === '') loadGroups();
-    if (page === 'groups') loadBoard();
+    if (page === 'groups') { loadGroups(); loadBoard(); }
+    if (page === 'home') loadServers();
     if (page === 'servers') loadServers();
     if (st === 'error' && page !== 'logs') $('#navLogDot').hidden = false;
     $('#coreLevel').disabled = st !== 'running';
@@ -297,7 +294,6 @@ const delays = new Map(); // имя -> мс, 0 = не ответил
 async function loadGroups() {
   if (!S || S.status !== 'running') {
     groupsData = null;
-    renderGroups();
     return;
   }
   try {
@@ -318,7 +314,6 @@ async function loadGroups() {
   } catch (e) {
     groupsData = null;
   }
-  renderGroups();
 }
 
 // Явный пинг показываем как есть (0 = «нет»). Из истории ядра берём только
@@ -348,19 +343,6 @@ function groupIcon(g) {
 }
 
 
-function renderGroups() {
-  const quick = $('#quickGroups');
-  const on = !!(groupsData && groupsData.groups.length);
-  $('#quickEmpty').hidden = on;
-  if (!on) { quick.replaceChildren(); return; }
-
-  const rows = groupsData.groups.filter((g) => g.type === 'Selector').map((g) => {
-    const sel = h('select', { title: g.name, onchange: (e) => selectProxy(g.name, e.target.value) },
-      g.all.map((n) => h('option', { value: n, selected: n === g.now }, n)));
-    return h('div', { class: 'qrow' }, groupIcon(g), h('span', { class: 'gname', title: g.name }, g.name), sel);
-  });
-  quick.replaceChildren(...rows);
-}
 async function selectProxy(group, name) {
   try {
     await api('/mihomo/proxies/' + encodeURIComponent(group), { method: 'PUT', body: { name } });
@@ -382,14 +364,12 @@ async function pingGroup(name, btn) {
     if (g) g.all.forEach((n) => { if (!delays.has(n)) delays.set(n, 0); });
   }
   if (btn) btn.classList.remove('busy');
-  renderGroups();
 }
 
 setInterval(() => {
   if (document.hidden) return;
-  if (page === 'groups' || page === 'home') loadGroups();
-  if (page === 'groups') loadBoard();
-  if (page === 'servers') loadServers();
+  if (page === 'groups') { loadGroups(); loadBoard(); }
+  if (page === 'servers' || page === 'home') loadServers();
 }, 5000);
 
 // ---------- доска «Через VPN / Напрямую» ----------
@@ -1155,6 +1135,7 @@ async function loadServers() {
   try {
     SRV = await api('/servers');
     renderServers();
+    renderHomeServer();
   } catch (e) { /* оверлей */ }
 }
 
@@ -1164,38 +1145,35 @@ function srvMeta(s) {
   return parts.filter(Boolean).join(' · ');
 }
 
+const ICON_GEAR = '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>';
+
 function renderServers() {
   if (!SRV) return;
   const list = SRV.servers;
   const chosen = SRV.running ? (SRV.current || '') : SRV.active;
-  const rows = list.map((s) => {
+  const row = (s, own) => {
     const on = s.name === chosen;
-    return h('div', { class: 'srv' + (on ? ' on' : '') },
+    return h('div', { class: 'srv' + (on ? ' on' : '') + (own ? '' : ' readonly') },
       h('button', { class: 'srv-main', onclick: () => chooseServer(s.name) },
         h('span', { class: 'radio' }),
         h('div', { class: 'srv-text' }, h('b', {}, s.name), h('span', {}, srvMeta(s)))),
       on && SRV.running ? h('span', { class: 'badge now' }, 'используется') : null,
+      own ? null : h('span', { class: 'badge', title: 'Этот сервер записан в конфиге: меняется на вкладке «Конфиг»' }, 'из конфига'),
       delayEl(s.name),
-      h('div', { class: 'srv-actions' },
+      own ? h('div', { class: 'srv-actions' },
+        h('button', { class: 'icon-btn', title: 'Настроить параметры', onclick: () => editServer(s) }, svg(ICON_GEAR)),
         s.link ? h('button', { class: 'icon-btn', title: 'Скопировать ссылку', onclick: () => copyText(s.link, 'Ссылка скопирована') }, svg(ICON_COPY)) : null,
         h('button', { class: 'icon-btn', title: 'Переименовать', onclick: () => renameServer(s) }, svg(ICON_EDIT)),
-        h('button', { class: 'icon-btn danger', title: 'Удалить', onclick: () => deleteServer(s) }, svg(ICON_TRASH))));
-  });
-  $('#srvList').replaceChildren(...rows);
-  $('#srvEmpty').hidden = list.length > 0;
-  $('#srvPing').disabled = !SRV.running || !list.length;
-
-  const note = $('#srvNote');
-  const cfgNames = SRV.config.map((s) => s.name);
-  if (cfgNames.length && !list.some((s) => s.name === chosen)) {
-    note.textContent = 'Сейчас работает сервер из конфига: ' + cfgNames.join(', ') + '.' +
-      (list.length ? ' Нажмите на импортированный, чтобы переключиться на него.' : '');
-  } else {
-    note.textContent = '';
-  }
+        h('button', { class: 'icon-btn danger', title: 'Удалить', onclick: () => deleteServer(s) }, svg(ICON_TRASH))) : null);
+  };
+  $('#srvList').replaceChildren(...list.map((s) => row(s, true)), ...SRV.config.map((s) => row(s, false)));
+  $('#srvEmpty').hidden = list.length + SRV.config.length > 0;
+  $('#srvPing').disabled = !SRV.running || !(list.length + SRV.config.length);
+  $('#srvNote').textContent = SRV.running && chosen && !list.some((s) => s.name === chosen) && !SRV.config.some((s) => s.name === chosen)
+    ? 'Сейчас выбрано: ' + chosen + ' (автовыбор сервера)' : '';
 
   // один автоматический пинг при открытии вкладки
-  if (SRV.running && list.length && !srvAutoPinged) {
+  if (SRV.running && (list.length || SRV.config.length) && !srvAutoPinged) {
     srvAutoPinged = true;
     pingServers();
   }
@@ -1205,6 +1183,7 @@ async function chooseServer(name) {
   try {
     SRV = await api('/servers/active', { method: 'PUT', body: { name } });
     renderServers();
+    renderHomeServer();
     loadGroups();
     if (!SRV.running) toast('Сервер «' + name + '» будет использован при подключении', 'ok');
   } catch (e) { toast(e.message, 'err'); }
@@ -1238,7 +1217,7 @@ async function pingServers() {
   if (!SRV || !SRV.running) return;
   const btn = $('#srvPing');
   btn.classList.add('busy');
-  await Promise.all(SRV.servers.map(async (s) => {
+  await Promise.all([...SRV.servers, ...SRV.config].map(async (s) => {
     try {
       const d = await api('/mihomo/proxies/' + encodeURIComponent(s.name) + '/delay?url=' + encodeURIComponent(PING_URL) + '&timeout=6000');
       delays.set(s.name, d.delay || 0);
@@ -1250,6 +1229,185 @@ async function pingServers() {
 $('#srvPing').addEventListener('click', pingServers);
 
 const srvModal = $('#srvModal');
+
+// ---------- глубокая настройка сервера ----------
+const srvEditModal = $('#srvEditModal');
+let srvEditID = null;
+async function editServer(s) {
+  srvEditID = s.id;
+  $('#srvEditTitle').textContent = 'Настройка: ' + s.name;
+  $('#srvEditResult').replaceChildren();
+  $('#srvEditResult').className = 'result';
+  try {
+    const d = await api('/servers/' + encodeURIComponent(s.id) + '/yaml');
+    $('#srvEditYAML').value = d.yaml;
+    $('#srvEditNote').textContent = 'Параметры сервера в формате mihomo: адрес, порт, uuid, SNI, fingerprint, flow, транспорт и т.д. Имя меняется кнопкой «Переименовать».' +
+      (d.fromLink ? ' После сохранения ссылка vless:// у сервера пропадёт: она бы уже не совпадала с параметрами.' : '');
+    srvEditModal.showModal();
+  } catch (e) { toast(e.message, 'err'); }
+}
+$('#srvEditClose').addEventListener('click', () => srvEditModal.close());
+$('#srvEditYAML').addEventListener('keydown', (e) => {
+  if (e.key !== 'Tab') return;
+  e.preventDefault();
+  const t = e.target;
+  t.setRangeText('  ', t.selectionStart, t.selectionEnd, 'end');
+});
+$('#srvEditSave').addEventListener('click', async (e) => {
+  const btn = e.currentTarget;
+  busy(btn, true);
+  const res = $('#srvEditResult');
+  res.className = 'result';
+  res.textContent = 'Проверяю ядром...';
+  try {
+    const d = await api('/servers/' + encodeURIComponent(srvEditID) + '/yaml', { method: 'PUT', body: { yaml: $('#srvEditYAML').value } });
+    srvEditModal.close();
+    toast(d.restarted ? 'Сохранено, переподключаюсь' : 'Сохранено', 'ok');
+    loadServers();
+  } catch (err) {
+    res.className = 'result fail';
+    res.textContent = err.message;
+  }
+  busy(btn, false);
+});
+
+// ---------- главная: сервер и профиль ----------
+let PROF = null;
+const CHOICE_TEXT = { Fallback: 'Fallback (авто: первый рабочий)', Fastest: 'Fastest (авто: самый быстрый)' };
+
+function renderHomeServer() {
+  const sel = $('#homeServer');
+  if (!SRV || document.activeElement === sel) return; // не мешаем, пока меню открыто
+  const cur = SRV.running ? (SRV.current || SRV.active) : SRV.active;
+  const names = SRV.choices && SRV.choices.length ? SRV.choices : [...SRV.servers, ...SRV.config].map((s) => s.name);
+  const opts = names.map((n) => h('option', { value: n, selected: n === cur }, CHOICE_TEXT[n] || n));
+  if (cur && !names.includes(cur)) opts.unshift(h('option', { value: cur, selected: true }, cur));
+  if (!names.length && !cur) opts.push(h('option', { value: '', selected: true, disabled: true }, 'Серверов пока нет'));
+  opts.push(h('option', { value: '__add' }, '+ Добавить сервер...'));
+  sel.replaceChildren(...opts);
+  sel.dataset.cur = cur || '';
+}
+
+$('#homeServer').addEventListener('change', (e) => {
+  const v = e.target.value;
+  if (v === '__add') {
+    e.target.value = e.target.dataset.cur;
+    e.target.blur();
+    openImport();
+    return;
+  }
+  e.target.blur();
+  chooseServer(v).then(() => {
+    toast(S && S.status === 'running' ? 'Сервер: ' + v : 'Сервер «' + v + '» будет использован при подключении', 'ok');
+  });
+});
+
+async function loadProfiles() {
+  try { PROF = await api('/profiles'); } catch (e) { PROF = null; }
+  renderHomeProfile();
+  renderProfileList();
+}
+
+function renderHomeProfile() {
+  const sel = $('#homeProfile');
+  if (!PROF || document.activeElement === sel) return;
+  const kids = [];
+  if (!PROF.active) kids.push(h('option', { value: '', selected: true, disabled: true }, 'Профиль не выбран'));
+  if (PROF.profiles.length) {
+    kids.push(h('optgroup', { label: 'Профили' }, ...PROF.profiles.map((p) => h('option', { value: 'p:' + p.name, selected: p.active }, p.name))));
+  }
+  if (PROF.templates.length) {
+    kids.push(h('optgroup', { label: 'Новый из шаблона' }, ...PROF.templates.map((t) => h('option', { value: 't:' + t.id }, t.name))));
+  }
+  kids.push(h('option', { value: '__manage' }, 'Управление профилями...'));
+  sel.replaceChildren(...kids);
+  sel.dataset.cur = PROF.active ? 'p:' + PROF.active : '';
+  $('#cfgProfileName').textContent = PROF.active ? '· ' + PROF.active : '';
+}
+
+async function switchProfile(body) {
+  if (cfgDirty() && !confirm('В редакторе конфига есть несохранённые изменения, они пропадут. Переключить профиль?')) {
+    renderHomeProfile();
+    return;
+  }
+  try {
+    PROF = await api('/profiles/activate', { method: 'POST', body });
+    renderHomeProfile();
+    renderProfileList();
+    await loadConfig();
+    loadServers();
+    if (page === 'groups') loadBoard();
+    toast('Профиль: ' + PROF.active + (S && (S.status === 'running' || S.status === 'starting') ? '. Переподключаюсь' : ''), 'ok');
+  } catch (e) { toast(e.message, 'err'); renderHomeProfile(); }
+}
+
+$('#homeProfile').addEventListener('change', (e) => {
+  const v = e.target.value;
+  e.target.blur();
+  if (v === '__manage') {
+    e.target.value = e.target.dataset.cur;
+    go('config');
+    openProfiles();
+  } else if (v.startsWith('p:')) switchProfile({ name: v.slice(2) });
+  else if (v.startsWith('t:')) switchProfile({ template: v.slice(2) });
+});
+
+// ---------- управление профилями ----------
+const profModal = $('#profModal');
+function openProfiles() {
+  $('#profNewName').value = '';
+  loadProfiles();
+  profModal.showModal();
+}
+$('#cfgProfiles').addEventListener('click', openProfiles);
+$('#profClose').addEventListener('click', () => profModal.close());
+
+function renderProfileList() {
+  if (!PROF) return;
+  $('#profList').replaceChildren(...(PROF.profiles.length ? PROF.profiles.map((p) =>
+    h('div', { class: 'prof' + (p.active ? ' on' : '') },
+      h('button', { class: 'prof-main', onclick: () => { if (!p.active) switchProfile({ name: p.name }); } },
+        h('span', { class: 'radio' }), h('b', {}, p.name)),
+      p.active ? h('span', { class: 'badge' }, 'активный') : null,
+      h('button', { class: 'icon-btn', title: 'Переименовать', onclick: () => renameProfile(p.name) }, svg(ICON_EDIT)),
+      h('button', { class: 'icon-btn danger', title: 'Удалить', onclick: () => deleteProfile(p.name) }, svg(ICON_TRASH))))
+    : [h('div', { class: 'empty small' }, 'Профилей пока нет: выберите шаблон на главной или создайте профиль ниже')]));
+}
+
+async function renameProfile(name) {
+  const n = prompt('Новое имя профиля', name);
+  if (!n || n.trim() === name) return;
+  try { PROF = await api('/profiles/' + encodeURIComponent(name), { method: 'PUT', body: { name: n.trim() } }); renderHomeProfile(); renderProfileList(); }
+  catch (e) { toast(e.message, 'err'); }
+}
+
+async function deleteProfile(name) {
+  if (!confirm('Удалить профиль «' + name + '»? Файл останется в папке data\\profiles с пометкой .deleted.')) return;
+  try {
+    const wasActive = PROF && PROF.active === name;
+    PROF = await api('/profiles/' + encodeURIComponent(name), { method: 'DELETE' });
+    renderHomeProfile();
+    renderProfileList();
+    if (wasActive) { loadConfig(); loadServers(); }
+  } catch (e) { toast(e.message, 'err'); }
+}
+
+async function createProfile(copy) {
+  const name = $('#profNewName').value.trim();
+  if (!name) return toast('Введите название профиля', 'warn');
+  if (cfgDirty() && !confirm('В редакторе конфига есть несохранённые изменения, они пропадут. Продолжить?')) return;
+  try {
+    PROF = await api('/profiles', { method: 'POST', body: { name, copy } });
+    $('#profNewName').value = '';
+    renderHomeProfile();
+    renderProfileList();
+    await loadConfig();
+    loadServers();
+    toast('Профиль «' + name + '» создан и выбран', 'ok');
+  } catch (e) { toast(e.message, 'err'); }
+}
+$('#profCopy').addEventListener('click', () => createProfile(true));
+$('#profEmpty').addEventListener('click', () => createProfile(false));
 async function openImport() {
   $('#srvAddResult').replaceChildren();
   $('#srvAddResult').className = 'result';
@@ -1301,3 +1459,5 @@ setInterval(() => { if (!document.hidden && S && S.status === 'running') $('#her
 pollState();
 pollLogs();
 loadConfig();
+loadServers();
+loadProfiles();

@@ -158,7 +158,7 @@ func (c *Core) launch(ctx context.Context) error {
 			return err
 		}
 	}
-	src, err := os.ReadFile(a.paths.UserConfig)
+	src, err := os.ReadFile(a.configPath())
 	if errors.Is(err, os.ErrNotExist) || (err == nil && strings.TrimSpace(string(src)) == "") {
 		return errors.New("нет конфига: выберите шаблон или вставьте свой на вкладке «Конфиг»")
 	}

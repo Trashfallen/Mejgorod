@@ -6,10 +6,11 @@ One-click Windows VPN client on the [mihomo](https://github.com/MetaCubeX/mihomo
 
 ## Features
 
-- **One button.** Connect and disconnect from the main screen or the tray icon.
+- **One button.** Connect and disconnect from the main screen or the tray icon. The main screen also has a server dropdown (with "Add server") and a profile dropdown.
+- **Profiles.** Several configs side by side: your own, "Everything through VPN", "Selective" and so on. A template becomes a profile when picked, then it is edited like your own. Profiles are managed on the Config tab.
 - **Router config as is.** The XKeen config is adapted for the PC on the fly. Your text is never rewritten.
 - **Templates.** The editor starts empty. The "Template" button loads a built-in config or any `.yaml` from the `templates` folder next to the exe.
-- **Servers.** Import `vless://` links (the link is picked up from the clipboard) and switch between them. The first imported server is selected automatically.
+- **Servers.** Import `vless://` links (the link is picked up from the clipboard) and switch between them. The first imported server is selected automatically. The gear button opens the server parameters in YAML (SNI, fingerprint, flow, transport...), checked by the core before saving.
 - **Groups board.** Two columns, "Via VPN" and "Direct". Drag a service (YouTube, Discord, ...) between them or click it to pick a specific server. Works with the VPN off too: the choice is applied on connect.
 - **Your own sites and apps.** The "+" button in a column adds a site or a program. For a site, its domains are looked up in the MetaCubeX geosite/geoip lists (instagram.com -> 74 domains, auto-updated). For a program, all its traffic goes the chosen way (`PROCESS-NAME`).
 - **Logs and checks.** Core logs with filters. The config is validated by the core before start, and errors jump to the line in the editor.
@@ -43,7 +44,7 @@ The templates contain no servers. Keep personal configs with UUIDs in `templates
 
 ## What happens to the config
 
-The config is stored as pasted (`data\config.yaml`). Before starting the core, the app builds a PC version of it (`data\home\config.yaml`):
+The config of the active profile is stored as pasted (`data\profiles\<name>.yaml`). Before starting the core, the app builds a PC version of it (`data\home\config.yaml`):
 
 - router-only settings are commented out: `redir-port`, `tproxy-port`, `routing-mark`, `interface-name`;
 - `allow-lan: false`, `external-controller: 127.0.0.1:<port>`;

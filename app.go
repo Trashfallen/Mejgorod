@@ -58,6 +58,7 @@ func newApp(p Paths, token string) (*App, error) {
 		token:    token,
 	}
 	a.core = newCore(a)
+	a.migrateProfiles()
 	// недокачанное обновление ядра с прошлого раза
 	_ = os.Remove(p.CoreExe + ".new")
 	if fileExists(p.CoreExe) {
@@ -144,6 +145,7 @@ func (a *App) configInfo() ConfigInfo {
 // cfgSnapshot - конфиг пользователя и то, что из него часто нужно.
 // Перечитывается, только когда файл изменился.
 type cfgSnapshot struct {
+	path            string
 	mod             time.Time
 	size            int64
 	text            string
@@ -152,20 +154,21 @@ type cfgSnapshot struct {
 }
 
 func (a *App) cfg() cfgSnapshot {
-	st, err := os.Stat(a.paths.UserConfig)
+	path := a.configPath()
+	st, err := os.Stat(path)
 	if err != nil {
 		return cfgSnapshot{}
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if c := a.cfgCache; c.mod.Equal(st.ModTime()) && c.size == st.Size() {
+	if c := a.cfgCache; c.path == path && c.mod.Equal(st.ModTime()) && c.size == st.Size() {
 		return c
 	}
-	b, err := os.ReadFile(a.paths.UserConfig)
+	b, err := os.ReadFile(path)
 	if err != nil {
 		return cfgSnapshot{}
 	}
-	c := cfgSnapshot{mod: st.ModTime(), size: st.Size(), text: string(b)}
+	c := cfgSnapshot{path: path, mod: st.ModTime(), size: st.Size(), text: string(b)}
 	c.proxies, c.groups = configStats(c.text)
 	c.selects = selectGroups(c.text)
 	a.cfgCache = c
