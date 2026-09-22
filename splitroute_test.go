@@ -93,13 +93,13 @@ func TestAdaptSplit(t *testing.T) {
 	}
 	in, out := splitLines(splitSample), splitLines(ad.Text)
 	for i, l := range in { // номера строк не сдвинулись
-		if strings.TrimSpace(l) != "" && out[i] != l && out[i] != "# [MihomoDesk] "+l {
+		if strings.TrimSpace(l) != "" && out[i] != l && out[i] != "# [Mejgorod] "+l {
 			t.Fatalf("line %d: %q -> %q", i+1, l, out[i])
 		}
 	}
 	for _, want := range []string{
-		"# [MihomoDesk] dns:",
-		"  enhanced-mode: fake-ip # [MihomoDesk] было redir-host",
+		"# [Mejgorod] dns:",
+		"  enhanced-mode: fake-ip # [Mejgorod] было redir-host",
 		`    - "+.corp.example"`,
 		`    "+.corp.example": "10.9.9.9"`,
 		"  route-address:\n    - \"198.18.0.0/16\"",
@@ -109,7 +109,7 @@ func TestAdaptSplit(t *testing.T) {
 			t.Errorf("no %q in:\n%s", want, ad.Text)
 		}
 	}
-	if core := os.Getenv("MIHOMODESK_CORE"); core != "" {
+	if core := os.Getenv("MEJGOROD_CORE"); core != "" {
 		dir := t.TempDir()
 		f := filepath.Join(dir, "config.yaml")
 		os.WriteFile(f, []byte(ad.Text), 0o644)
@@ -119,12 +119,12 @@ func TestAdaptSplit(t *testing.T) {
 	}
 }
 
-// MIHOMODESK_CONFIG + MIHOMODESK_CORE + MIHOMODESK_HOME (папка ядра со списками):
+// MEJGOROD_CONFIG + MEJGOROD_CORE + MEJGOROD_HOME (папка ядра со списками):
 // режим «только нужное» на реальном конфиге.
 func TestAdaptSplitRealConfig(t *testing.T) {
-	src, core, home := os.Getenv("MIHOMODESK_CONFIG"), os.Getenv("MIHOMODESK_CORE"), os.Getenv("MIHOMODESK_HOME")
+	src, core, home := os.Getenv("MEJGOROD_CONFIG"), os.Getenv("MEJGOROD_CORE"), os.Getenv("MEJGOROD_HOME")
 	if src == "" || core == "" || home == "" {
-		t.Skip("MIHOMODESK_CONFIG/CORE/HOME not set")
+		t.Skip("MEJGOROD_CONFIG/CORE/HOME not set")
 	}
 	b, err := os.ReadFile(src)
 	if err != nil {
@@ -156,7 +156,7 @@ func TestAdaptSplitRealConfig(t *testing.T) {
 	if msg, err := testConfig(context.Background(), core, dir, f); err != nil {
 		t.Errorf("mihomo -t: %v\n%s", err, msg)
 	}
-	if dst := os.Getenv("MIHOMODESK_DUMP"); dst != "" {
+	if dst := os.Getenv("MEJGOROD_DUMP"); dst != "" {
 		os.WriteFile(dst, []byte(ad.Text), 0o644)
 	}
 }

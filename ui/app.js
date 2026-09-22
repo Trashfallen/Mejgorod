@@ -82,12 +82,12 @@ async function api(path, { method = 'GET', body } = {}) {
   try {
     r = await fetch('/api' + path, opt);
   } catch (e) {
-    if (++failures >= 3) showOverlay('Программа закрыта', 'MihomoDesk больше не отвечает. Запустите её снова.');
+    if (++failures >= 3) showOverlay('Программа закрыта', 'Mejgorod больше не отвечает. Запустите её снова.');
     throw new Error('Программа не отвечает');
   }
   if (failures) { failures = 0; if ($('#overlayTitle').textContent === 'Программа закрыта') $('#overlay').hidden = true; }
   if (r.status === 401) {
-    showOverlay('Окно устарело', 'Откройте MihomoDesk заново из значка в трее.');
+    showOverlay('Окно устарело', 'Откройте Mejgorod заново из значка в трее.');
     throw new Error('unauthorized');
   }
   const text = await r.text();
@@ -280,7 +280,7 @@ function renderUpdatePrompt() {
   const pct = u.busy && u.progress >= 0 && u.progress < 1 ? ' ' + Math.round(u.progress * 100) + '%' : '';
   msg.textContent = u.busy ? (u.message || 'Обновляю') + pct : u.error ? 'Не получилось: ' + u.error : '';
   msg.classList.toggle('err', !u.busy && !!u.error);
-  $('#updTitle').textContent = u.busy ? 'Обновляю MihomoDesk' : 'Есть обновление';
+  $('#updTitle').textContent = u.busy ? 'Обновляю Mejgorod' : 'Есть обновление';
   $('#updQ').hidden = u.busy;
   $('#updActions').hidden = u.busy;
   $('#updYes').textContent = u.error ? 'Повторить' : 'Да, обновить';
@@ -307,12 +307,12 @@ async function startAppUpdate() {
 
 function renderAppUpdate() {
   const u = S.update;
-  $('#appVer').textContent = 'MihomoDesk ' + S.app.version;
+  $('#appVer').textContent = 'Mejgorod ' + S.app.version;
   const msg = $('#appUpdMsg');
   msg.textContent = u.busy ? (u.message || 'Обновляю')
     : u.error ? 'Ошибка: ' + u.error
       : u.available ? 'Доступна версия ' + u.version
-        : u.message || 'Обновления берутся из релизов github.com/Trashfallen/mihomo-desk';
+        : u.message || 'Обновления берутся из релизов github.com/Trashfallen/mejgorod';
   msg.style.color = u.error ? 'var(--err)' : u.available ? 'var(--accent-text)' : '';
   const bar = $('#appUpdProgress');
   bar.hidden = !u.busy;
@@ -1142,7 +1142,7 @@ $('#openZash').addEventListener('click', async () => {
 });
 $('#openData').addEventListener('click', () => api('/open', { method: 'POST', body: { target: 'data' } }).catch((e) => toast(e.message, 'err')));
 $('#quitApp').addEventListener('click', async () => {
-  if (!confirm('Отключить VPN и закрыть MihomoDesk?')) return;
+  if (!confirm('Отключить VPN и закрыть Mejgorod?')) return;
   try { await api('/quit', { method: 'POST' }); } catch (e) { /* уже закрылась */ }
   showOverlay('Программа закрыта', 'VPN отключён. Это окно можно закрыть.');
 });

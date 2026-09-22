@@ -1,4 +1,4 @@
-# MihomoDesk
+# Mejgorod
 
 [Русская версия](README.ru.md)
 
@@ -11,6 +11,7 @@ One-click Windows VPN client on the [mihomo](https://github.com/MetaCubeX/mihomo
 - **Router config as is.** The XKeen config is adapted for the PC on the fly. Your text is never rewritten.
 - **Templates.** The editor starts empty. The "Template" button loads a built-in config or any `.yaml` from the `templates` folder next to the exe.
 - **Servers.** Import `vless://` links (the link is picked up from the clipboard) and switch between them. The first imported server is selected automatically. The gear button opens the server parameters in YAML (SNI, fingerprint, flow, transport...), checked by the core before saving.
+- **Subscriptions.** Paste a subscription link in the same import dialog and the app fetches it - base64 or plain text lists of links, or a raw mihomo/clash config with a `proxies:` block. Found servers show as a checklist (everything checked by default) so you pick which ones to keep.
 - **Groups board.** Two columns, "Via VPN" and "Direct". Drag a service (YouTube, Discord, ...) between them or click it to pick a specific server. Works with the VPN off too: the choice is applied on connect.
 - **Your own sites and apps.** The "+" button in a column adds a site or a program. For a site, its domains are looked up in the MetaCubeX geosite/geoip lists (instagram.com -> 74 domains, auto-updated). For a program, all its traffic goes the chosen way (`PROCESS-NAME`).
 - **Logs and checks.** Core logs with filters. The config is validated by the core before start, and errors jump to the line in the editor.
@@ -26,10 +27,10 @@ One-click Windows VPN client on the [mihomo](https://github.com/MetaCubeX/mihomo
 
 ## Getting started
 
-1. Build the app (see [Building](#building)) or take `MihomoDesk.exe` from the Releases page, if there is one.
-2. Put `MihomoDesk.exe` in any folder and run it. Data is kept in `data` next to the exe.
+1. Build the app (see [Building](#building)) or take `Mejgorod.exe` from the Releases page, if there is one.
+2. Put `Mejgorod.exe` in any folder and run it. Data is kept in `data` next to the exe.
 3. On the "Config" tab, paste your config or load a template.
-4. If the config has no servers, import a `vless://` link on the "Servers" tab.
+4. If the config has no servers, import a `vless://` link or a subscription link on the "Servers" tab.
 5. Press the power button.
 
 Closing the window hides the app to the tray and keeps the VPN running. To quit, use the tray menu or "Settings" -> "Quit".
@@ -60,13 +61,13 @@ Sites and programs added with "+" are written into the config itself, so the sam
 
 ```yaml
 rules:
-  # MihomoDesk: свои сайты и программы (вкладка «Группы»)
+  # Mejgorod: свои сайты и программы (вкладка «Группы»)
   - OR,((DOMAIN-SUFFIX,instagram.com),(RULE-SET,instagram@domain)),PROXY # desk: instagram.com
   - PROCESS-NAME,Telegram.exe,DIRECT # desk: Telegram.exe
-  # MihomoDesk: конец
+  # Mejgorod: конец
 ```
 
-The section goes first in `rules`, so an explicit choice wins over the other rules. Lists found for sites go into a similar section at the end of `rule-providers`. Do not edit lines between the markers by hand: the Groups tab rewrites them.
+The section goes first in `rules`, so an explicit choice wins over the other rules. Lists found for sites go into a similar section at the end of `rule-providers`. Do not edit lines between the markers by hand: the Groups tab rewrites them. Profiles saved before the app was renamed from MihomoDesk keep working: their old `# MihomoDesk: ...` markers are still recognized and get migrated to the new ones on the next edit.
 
 ## Next to Citrix Secure Access
 
@@ -89,20 +90,20 @@ Requires Go 1.25+.
 build.cmd
 ```
 
-The script embeds the icon and version info and writes `dist\MihomoDesk.exe`.
+The script embeds the icon and version info and writes `dist\Mejgorod.exe`.
 
 UI debugging without admin rights and without TUN:
 
 ```
-set MIHOMODESK_DEV_NOTUN=1
-dist\MihomoDesk.exe --no-elevate
+set MEJGOROD_DEV_NOTUN=1
+dist\Mejgorod.exe --no-elevate
 ```
 
 Tests: `go test ./...`. Checking a real config with the core:
 
 ```
-set MIHOMODESK_CONFIG=path\to\config.yaml
-set MIHOMODESK_CORE=dist\data\core\mihomo.exe
+set MEJGOROD_CONFIG=path\to\config.yaml
+set MEJGOROD_CORE=dist\data\core\mihomo.exe
 go test -run TestAdaptRealConfig -v .
 ```
 
@@ -110,8 +111,8 @@ go test -run TestAdaptRealConfig -v .
 
 The app updates itself from the latest release of this repository:
 
-1. Run `release.cmd 0.1.3` (the next version). It builds `release\MihomoDesk.exe` and `release\MihomoDesk-0.1.3.zip` (exe + mihomo core + a short guide).
-2. Create a release with the tag `v0.1.3` and attach both files. The exe must be named exactly `MihomoDesk.exe`: the app downloads it when updating. The zip is for people installing from scratch.
+1. Run `release.cmd 0.2.0` (the next version). It builds `release\Mejgorod.exe` and `release\Mejgorod-0.2.0.zip` (exe + mihomo core + a short guide).
+2. Create a release with the tag `v0.2.0` and attach both files. The exe must be named exactly `Mejgorod.exe`: the app downloads it when updating. The zip is for people installing from scratch.
 3. Bump the default version in `main.go` and `build.cmd`.
 
 Apps with an older version offer the update on start. The version only goes up: a release with a lower number is never offered.

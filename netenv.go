@@ -19,7 +19,7 @@ import (
 )
 
 // tunDevice - имя TUN-адаптера, которое программа задаёт ядру.
-const tunDevice = "MihomoDesk"
+const tunDevice = "Mejgorod"
 
 // hasGlobalIPv6 - есть ли у ПК настоящий IPv6 (не TUN, не Teredo, не локальный).
 // Без него ядру незачем отдавать приложениям адреса IPv6: соединения на них

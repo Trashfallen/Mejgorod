@@ -8,9 +8,9 @@ import (
 )
 
 // Встроенные шаблоны: разбираются, без серверов помечаются NoServers,
-// с серверами (и ядром из MIHOMODESK_CORE) проходят "mihomo -t".
+// с серверами (и ядром из MEJGOROD_CORE) проходят "mihomo -t".
 func TestBuiltinTemplates(t *testing.T) {
-	core := os.Getenv("MIHOMODESK_CORE")
+	core := os.Getenv("MEJGOROD_CORE")
 	for _, tpl := range builtinTemplates {
 		b, err := builtinFS.ReadFile(tpl.file)
 		if err != nil {

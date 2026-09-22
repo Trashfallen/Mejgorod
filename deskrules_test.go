@@ -53,7 +53,7 @@ func TestDeskRoundTrip(t *testing.T) {
 	if n, add := providerFor(text, provs, "instagram", "domain", gsURL); n != name || !add {
 		t.Errorf("reuse desk provider = %q %v", n, add)
 	}
-	if core := os.Getenv("MIHOMODESK_CORE"); core != "" {
+	if core := os.Getenv("MEJGOROD_CORE"); core != "" {
 		ad, err := adaptConfig(text, defaultSettings(), nil)
 		if err != nil {
 			t.Fatal(err)

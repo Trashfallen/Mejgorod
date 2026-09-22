@@ -4,10 +4,10 @@ package main
 // между метками программы: так их видно в редакторе и можно перенести на роутер.
 //
 //	rules:
-//	  # MihomoDesk: свои сайты и программы (вкладка «Группы»)
+//	  # Mejgorod: свои сайты и программы (вкладка «Группы»)
 //	  - OR,((DOMAIN-SUFFIX,instagram.com),(RULE-SET,instagram@domain)),Заблок. сервисы # desk: instagram.com
 //	  - PROCESS-NAME,Telegram.exe,DIRECT # desk: Telegram.exe
-//	  # MihomoDesk: конец
+//	  # Mejgorod: конец
 //
 // Раздел стоит первым в rules: явный выбор пользователя важнее остальных правил.
 // Списки geosite/geoip для сайтов - в таком же разделе в конце rule-providers.
@@ -23,10 +23,19 @@ import (
 )
 
 const (
-	deskRulesBegin = "# MihomoDesk: свои сайты и программы (вкладка «Группы»)"
-	deskProvBegin  = "# MihomoDesk: списки для своих сайтов"
-	deskEnd        = "# MihomoDesk: конец"
+	deskRulesBegin = "# Mejgorod: свои сайты и программы (вкладка «Группы»)"
+	deskProvBegin  = "# Mejgorod: списки для своих сайтов"
+	deskEnd        = "# Mejgorod: конец"
 	deskTag        = " # desk: "
+
+	// Метки под прежним именем программы (MihomoDesk, до переименования в
+	// Mejgorod): читаем их наравне с новыми, чтобы профили, сохранённые до
+	// переименования, не потеряли свои сайты и программы. Пишем всегда
+	// новыми метками - старые встречаются только при чтении и на первой же
+	// правке через вкладку «Группы» заменяются на новые.
+	deskRulesBeginOld = "# MihomoDesk: свои сайты и программы (вкладка «Группы»)"
+	deskProvBeginOld  = "# MihomoDesk: списки для своих сайтов"
+	deskEndOld        = "# MihomoDesk: конец"
 )
 
 type deskRule struct {
@@ -57,13 +66,24 @@ func deskID(label string) string {
 func (r deskRule) line() string { return r.Body + "," + r.Target + deskTag + r.Label }
 
 // deskSection - строки раздела [begin, end] внутри блока key, -1 если нет.
-func deskSection(lines []string, b yblock, begin string) (int, int) {
+// begins - варианты стартовой метки: текущая и, для совместимости со старыми
+// профилями, прежняя.
+func deskSection(lines []string, b yblock, begins ...string) (int, int) {
+	isBegin := func(s string) bool {
+		for _, x := range begins {
+			if s == x {
+				return true
+			}
+		}
+		return false
+	}
+	isEnd := func(s string) bool { return s == deskEnd || s == deskEndOld }
 	for i := b.start + 1; i < b.end; i++ {
-		if strings.TrimSpace(lines[i]) != begin {
+		if !isBegin(strings.TrimSpace(lines[i])) {
 			continue
 		}
 		for j := i + 1; j < len(lines); j++ {
-			if strings.TrimSpace(lines[j]) == deskEnd {
+			if isEnd(strings.TrimSpace(lines[j])) {
 				return i, j
 			}
 		}
@@ -85,7 +105,7 @@ func findBlock(lines []string, key string) (yblock, bool) {
 func readDesk(src string) (rules []deskRule, provs []deskProvider) {
 	lines := splitLines(src)
 	if b, ok := findBlock(lines, "rules"); ok {
-		if s, e := deskSection(lines, b, deskRulesBegin); s >= 0 {
+		if s, e := deskSection(lines, b, deskRulesBegin, deskRulesBeginOld); s >= 0 {
 			for _, l := range lines[s+1 : e] {
 				t := strings.TrimSpace(l)
 				if !strings.HasPrefix(t, "- ") {
@@ -109,7 +129,7 @@ func readDesk(src string) (rules []deskRule, provs []deskProvider) {
 		}
 	}
 	if b, ok := findBlock(lines, "rule-providers"); ok {
-		if s, e := deskSection(lines, b, deskProvBegin); s >= 0 {
+		if s, e := deskSection(lines, b, deskProvBegin, deskProvBeginOld); s >= 0 {
 			for _, l := range lines[s+1 : e] {
 				var m map[string]cfgRuleProvider
 				if yaml.Unmarshal([]byte(strings.TrimSpace(l)), &m) != nil {
@@ -159,12 +179,12 @@ func writeDesk(src string, rules []deskRule, provs []deskProvider) (string, erro
 	}
 	// старые разделы убираем
 	for _, key := range []string{"rules", "rule-providers"} {
-		begin := deskRulesBegin
+		begins := []string{deskRulesBegin, deskRulesBeginOld}
 		if key == "rule-providers" {
-			begin = deskProvBegin
+			begins = []string{deskProvBegin, deskProvBeginOld}
 		}
 		if b, ok := findBlock(lines, key); ok {
-			if s, e := deskSection(lines, b, begin); s >= 0 {
+			if s, e := deskSection(lines, b, begins...); s >= 0 {
 				lines = append(lines[:s:s], lines[e+1:]...)
 			}
 		}

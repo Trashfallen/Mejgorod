@@ -270,7 +270,7 @@ func adaptConfigEnv(src string, s Settings, servers []Server, env Env) (*Adapted
 				drop[i] = true
 				changes = append(changes, "В dns убран listen: "+scalarAfterColon(l)+" - DNS перехватывается через TUN")
 			case strings.HasPrefix(t, "ipv6:") && !ipv6 && scalarAfterColon(l) == "true":
-				repl[i] = l[:child] + "ipv6: false # [MihomoDesk] было true: у ПК нет IPv6"
+				repl[i] = l[:child] + "ipv6: false # [Mejgorod] было true: у ПК нет IPv6"
 			}
 		}
 	} else {
@@ -402,7 +402,7 @@ func adaptConfigEnv(src string, s Settings, servers []Server, env Env) (*Adapted
 			l = r
 		}
 		if drop[i] {
-			l = "# [MihomoDesk] " + l
+			l = "# [Mejgorod] " + l
 		}
 		out = append(out, l)
 	}
@@ -412,7 +412,7 @@ func adaptConfigEnv(src string, s Settings, servers []Server, env Env) (*Adapted
 	for len(out) > 0 && isBlank(out[len(out)-1]) {
 		out = out[:len(out)-1]
 	}
-	out = append(out, "", "# ===== MihomoDesk: настройки для ПК (добавлены автоматически) =====")
+	out = append(out, "", "# ===== Mejgorod: настройки для ПК (добавлены автоматически) =====")
 	out = append(out, pc...)
 	res.Text = strings.Join(out, "\n") + "\n"
 	res.Changes = changes
@@ -523,12 +523,12 @@ func splitDNSBlock(body []string, env Env) (out []string, notes []string) {
 			continue
 		case "ipv6":
 			if !env.IPv6 && scalarAfterColon(l) == "true" {
-				l = pad + "ipv6: false # [MihomoDesk] было true: у ПК нет IPv6"
+				l = pad + "ipv6: false # [Mejgorod] было true: у ПК нет IPv6"
 			}
 		case "enhanced-mode":
 			haveMode = true
 			if v := scalarAfterColon(l); v != "fake-ip" {
-				l = pad + "enhanced-mode: fake-ip # [MihomoDesk] было " + v
+				l = pad + "enhanced-mode: fake-ip # [Mejgorod] было " + v
 				notes = append(notes, "dns: enhanced-mode "+v+" -> fake-ip: так в TUN попадает только нужное")
 			}
 		case "fake-ip-filter-mode":

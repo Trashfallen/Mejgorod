@@ -4,7 +4,7 @@ package main
 //
 // Окно - это Edge в режиме --app, и Windows по умолчанию прячет его под значок
 // Edge. Назначаем окну свой AppUserModelID и команду перезапуска: у него своя
-// кнопка с иконкой MihomoDesk, а закреплённый значок запускает MihomoDesk.exe.
+// кнопка с иконкой Mejgorod, а закреплённый значок запускает Mejgorod.exe.
 // Заодно следим, чтобы окно было одно: повторное открытие показывает уже
 // открытое, окна от прошлого запуска (с устаревшим токеном) закрываются.
 
@@ -21,7 +21,7 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-const appUserModelID = "Trashfallen.MihomoDesk"
+const appUserModelID = "Trashfallen.Mejgorod"
 
 var (
 	modShell32                      = windows.NewLazySystemDLL("shell32.dll")
@@ -137,7 +137,7 @@ var (
 	})
 )
 
-// appWindows - открытые окна программы (Edge с заголовком MihomoDesk).
+// appWindows - открытые окна программы (Edge с заголовком Mejgorod).
 func appWindows() []windows.HWND {
 	enumMu.Lock()
 	defer enumMu.Unlock()

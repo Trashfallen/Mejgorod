@@ -407,7 +407,7 @@ func (c *Core) pumpLogs(r io.Reader) {
 				if detectCorpVPN() != nil {
 					reason = "VPN отключён: мешает Citrix Secure Access (рабочий VPN). " +
 						"Он перехватывает соединения ядра и отправляет их обратно в TUN. " +
-						"Отключите Citrix на время работы MihomoDesk"
+						"Отключите Citrix на время работы Mejgorod"
 				}
 				go c.abort(reason)
 			}

@@ -28,8 +28,8 @@ import (
 )
 
 const (
-	updateRepo  = "Trashfallen/mihomo-desk"
-	updateAsset = "MihomoDesk.exe"
+	updateRepo  = "Trashfallen/mejgorod"
+	updateAsset = "Mejgorod.exe"
 )
 
 var (
@@ -298,7 +298,7 @@ func waitForExit(pid int, timeout time.Duration) {
 	_, _ = windows.WaitForSingleObject(h, uint32(timeout.Milliseconds()))
 }
 
-// cleanupOldExe убирает MihomoDesk.exe.old/.new после обновления.
+// cleanupOldExe убирает старую копию (exe.old) и недокачанную (exe.new) после обновления.
 func cleanupOldExe() {
 	exe, err := os.Executable()
 	if err != nil {

@@ -15,7 +15,7 @@ import (
 	"unicode/utf16"
 )
 
-const taskName = "MihomoDesk"
+const taskName = "Mejgorod"
 
 func autostartEnabled() bool {
 	cmd := exec.Command("schtasks", "/Query", "/TN", taskName)
@@ -86,7 +86,7 @@ func decodeOEM(b []byte) string {
 const taskXML = `<?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo>
-    <Description>MihomoDesk: VPN при входе в Windows</Description>
+    <Description>Mejgorod: VPN при входе в Windows</Description>
   </RegistrationInfo>
   <Triggers>
     <LogonTrigger>

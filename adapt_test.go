@@ -47,17 +47,17 @@ func TestAdaptRouterConfig(t *testing.T) {
 		if strings.TrimSpace(l) == "" {
 			continue
 		}
-		if out[i] != l && out[i] != "# [MihomoDesk] "+l {
+		if out[i] != l && out[i] != "# [Mejgorod] "+l {
 			t.Fatalf("line %d changed: %q -> %q", i+1, l, out[i])
 		}
 	}
 	for _, want := range []string{
-		"# [MihomoDesk] redir-port: 5000",
-		"# [MihomoDesk] tproxy-port: 5001",
-		"# [MihomoDesk] routing-mark: 255",
-		"# [MihomoDesk] allow-lan: true",
-		"# [MihomoDesk] external-controller: 0.0.0.0:9090",
-		"# [MihomoDesk]   listen: 0.0.0.0:53",
+		"# [Mejgorod] redir-port: 5000",
+		"# [Mejgorod] tproxy-port: 5001",
+		"# [Mejgorod] routing-mark: 255",
+		"# [Mejgorod] allow-lan: true",
+		"# [Mejgorod] external-controller: 0.0.0.0:9090",
+		"# [Mejgorod]   listen: 0.0.0.0:53",
 		"allow-lan: false",
 		"external-controller: 127.0.0.1:9090",
 		"find-process-mode: strict",
@@ -90,7 +90,7 @@ func TestAdaptIPv6(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := splitLines(ad.Text)
-	if out[0] != "# [MihomoDesk] ipv6: true" || !strings.HasPrefix(out[5], "  ipv6: false # [MihomoDesk]") {
+	if out[0] != "# [Mejgorod] ipv6: true" || !strings.HasPrefix(out[5], "  ipv6: false # [Mejgorod]") {
 		t.Errorf("ipv6 lines not replaced in place:\n%s", ad.Text)
 	}
 	if !strings.Contains(ad.Text, "\nipv6: false\n") || !strings.Contains(ad.Text, "  device: "+tunDevice) {
@@ -113,11 +113,11 @@ func TestAdaptRejectsGarbage(t *testing.T) {
 	}
 }
 
-// MIHOMODESK_CONFIG=путь к реальному конфигу, MIHOMODESK_CORE=путь к mihomo.exe
+// MEJGOROD_CONFIG=путь к реальному конфигу, MEJGOROD_CORE=путь к mihomo.exe
 func TestAdaptRealConfig(t *testing.T) {
-	src := os.Getenv("MIHOMODESK_CONFIG")
+	src := os.Getenv("MEJGOROD_CONFIG")
 	if src == "" {
-		t.Skip("MIHOMODESK_CONFIG not set")
+		t.Skip("MEJGOROD_CONFIG not set")
 	}
 	b, err := os.ReadFile(src)
 	if err != nil {
@@ -133,23 +133,23 @@ func TestAdaptRealConfig(t *testing.T) {
 	dir := t.TempDir()
 	out := filepath.Join(dir, "config.yaml")
 	os.WriteFile(out, []byte(ad.Text), 0o644)
-	if core := os.Getenv("MIHOMODESK_CORE"); core != "" {
+	if core := os.Getenv("MEJGOROD_CORE"); core != "" {
 		msg, err := testConfig(context.Background(), core, dir, out)
 		t.Logf("mihomo -t: err=%v\n%s", err, msg)
 		if err != nil {
 			t.Fail()
 		}
 	}
-	if dst := os.Getenv("MIHOMODESK_DUMP"); dst != "" {
+	if dst := os.Getenv("MEJGOROD_DUMP"); dst != "" {
 		os.WriteFile(dst, []byte(ad.Text), 0o644)
 	}
 }
 
-// MIHOMODESK_FETCH=папка: проверка скачивания ядра с GitHub.
+// MEJGOROD_FETCH=папка: проверка скачивания ядра с GitHub.
 func TestFetchCore(t *testing.T) {
-	dir := os.Getenv("MIHOMODESK_FETCH")
+	dir := os.Getenv("MEJGOROD_FETCH")
 	if dir == "" {
-		t.Skip("MIHOMODESK_FETCH not set")
+		t.Skip("MEJGOROD_FETCH not set")
 	}
 	f := &Fetcher{}
 	dst := filepath.Join(dir, "mihomo.exe")

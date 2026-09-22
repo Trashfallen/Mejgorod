@@ -1,4 +1,4 @@
-// MihomoDesk - VPN-клиент для Windows поверх ядра mihomo.
+// Mejgorod - VPN-клиент для Windows поверх ядра mihomo.
 // Принимает тот же конфиг, что XKeen на роутере, сам адаптирует его под ПК (TUN)
 // и управляется одной кнопкой: окно с интерфейсом + значок в трее.
 package main
@@ -16,7 +16,7 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-const appName = "MihomoDesk"
+const appName = "Mejgorod"
 
 // appVersion - var, чтобы проверять обновление сборкой с другой версией (-X main.appVersion).
 var appVersion = "0.1.3"
@@ -39,9 +39,9 @@ func main() {
 		waitForExit(*afterUpdate, 30*time.Second)
 	}
 	// отладка интерфейса без прав администратора: ядро стартует без TUN
-	devNoTun = os.Getenv("MIHOMODESK_DEV_NOTUN") == "1"
+	devNoTun = os.Getenv("MEJGOROD_DEV_NOTUN") == "1"
 	noElevateRun = *noElevate
-	if u := os.Getenv("MIHOMODESK_UPDATE_API"); u != "" {
+	if u := os.Getenv("MEJGOROD_UPDATE_API"); u != "" {
 		updateAPI = u // проверка обновления на своём сервере
 	}
 
