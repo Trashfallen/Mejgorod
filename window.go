@@ -64,6 +64,7 @@ func (a *App) openWindow() {
 			"--window-size=1180,800",
 			"--no-first-run",
 			"--no-default-browser-check",
+			"--no-context-menu",
 			"--disable-features=Translate,msEdgeSidebarV2,msUndersideButton",
 		)
 		if err := cmd.Start(); err == nil {

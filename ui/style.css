@@ -199,7 +199,7 @@ select:focus, .num:focus { border-color: var(--accent); }
 #page-home { max-width: 980px; margin: 0 auto; }
 .hero { display: flex; flex-direction: column; align-items: center; padding: 26px 0 22px; }
 .power {
-  width: 164px; height: 164px; border-radius: 50%;
+  width: 196px; height: 196px; border-radius: 50%;
   border: 0; cursor: pointer; position: relative; background: none; box-shadow: none;
   display: grid; place-items: center;
   transition: transform .1s, filter .25s;
@@ -209,7 +209,7 @@ select:focus, .num:focus { border-color: var(--accent); }
 .power:active { transform: scale(0.97); }
 body.st-running .power { filter: drop-shadow(0 0 26px rgba(34, 193, 173, 0.45)); }
 body.st-starting .power::after, body.st-stopping .power::after {
-  content: ""; position: absolute; inset: 4px; border-radius: 50%;
+  content: ""; position: absolute; inset: 6px; border-radius: 50%;
   border: 3px solid transparent; border-top-color: var(--accent); border-right-color: var(--accent);
   animation: spin 1s linear infinite;
 }
