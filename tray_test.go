@@ -45,3 +45,8 @@ func TestWaitForTaskbarTimeoutTriesAnyway(t *testing.T) {
 		t.Fatal("по таймауту нужно пробовать всё равно")
 	}
 }
+
+// Только печатает: на ПК с работающим проводником оболочка принимает значки.
+func TestShellAcceptsIcons(t *testing.T) {
+	t.Logf("taskbarReady=%v shellAcceptsIcons=%v", taskbarReady(), shellAcceptsIcons())
+}

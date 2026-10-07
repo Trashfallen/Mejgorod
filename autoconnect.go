@@ -71,7 +71,7 @@ func (a *App) autoConnect() {
 			logf: func(format string, args ...any) {
 				a.logs.Add("app", "info", fmt.Sprintf(format, args...))
 			},
-			delays: []time.Duration{10 * time.Second, 20 * time.Second, 30 * time.Second, 60 * time.Second, 90 * time.Second},
+			delays: []time.Duration{10 * time.Second, 20 * time.Second, 30 * time.Second, 60 * time.Second, 60 * time.Second, 60 * time.Second, 60 * time.Second, 60 * time.Second, 60 * time.Second},
 		}.run()
 	}()
 }

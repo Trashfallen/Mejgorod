@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"os"
+	"runtime"
 	"sync"
 	"time"
 	"unsafe"
@@ -30,10 +32,60 @@ var (
 	procFindWindowExW             = modUser32.NewProc("FindWindowExW")
 	procRegisterWindowMessageW    = modUser32.NewProc("RegisterWindowMessageW")
 	procChangeWindowMessageFilter = modUser32.NewProc("ChangeWindowMessageFilter")
+	procCreateWindowExW           = modUser32.NewProc("CreateWindowExW")
+	procDestroyWindow             = modUser32.NewProc("DestroyWindow")
+	procShellNotifyIconW          = modShell32.NewProc("Shell_NotifyIconW")
 )
 
+// probeIconData - NOTIFYICONDATAW для пробного значка.
+type probeIconData struct {
+	Size                       uint32
+	Wnd                        windows.Handle
+	ID, Flags, CallbackMessage uint32
+	Icon                       windows.Handle
+	Tip                        [128]uint16
+	State, StateMask           uint32
+	Info                       [256]uint16
+	Timeout, Version           uint32
+	InfoTitle                  [64]uint16
+	InfoFlags                  uint32
+	GuidItem                   windows.GUID
+	BalloonIcon                windows.Handle
+}
+
+// shellAcceptsIcons - принимает ли проводник значки в трей. Сразу после входа
+// в Windows панель задач уже есть, но Shell_NotifyIcon ещё отвечает отказом
+// или молча теряет следующие изменения: systray тогда остаётся с пустой
+// заготовкой («белое пятно») или вовсе без значка. Проверяем пробным значком.
+func shellAcceptsIcons() bool {
+	runtime.LockOSThread() // окно нужно разрушить в том же потоке, где создано
+	defer runtime.UnlockOSThread()
+	cls, _ := windows.UTF16PtrFromString("STATIC")
+	hwnd, _, _ := procCreateWindowExW.Call(0, uintptr(unsafe.Pointer(cls)), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+	if hwnd == 0 {
+		return false
+	}
+	defer procDestroyWindow.Call(hwnd)
+	const (
+		nimAdd, nimDelete = 0, 2
+		nifMessage        = 1
+		wmUser            = 0x0400
+	)
+	nid := probeIconData{Wnd: windows.Handle(hwnd), ID: 4242, Flags: nifMessage, CallbackMessage: wmUser + 2}
+	nid.Size = uint32(unsafe.Sizeof(nid))
+	ok, _, _ := procShellNotifyIconW.Call(nimAdd, uintptr(unsafe.Pointer(&nid)))
+	if ok == 0 {
+		return false
+	}
+	procShellNotifyIconW.Call(nimDelete, uintptr(unsafe.Pointer(&nid)))
+	return true
+}
+
+// trayReady - панель задач есть и проводник принимает значки.
+func trayReady() bool { return taskbarReady() && shellAcceptsIcons() }
+
 // taskbarReadyFunc - подмена в тестах.
-var taskbarReadyFunc = taskbarReady
+var taskbarReadyFunc = trayReady
 
 // taskbarReady - есть ли панель задач с областью уведомлений. Без неё
 // Shell_NotifyIcon не добавит значок, а systray после такой неудачи молча
@@ -124,6 +176,7 @@ func runTray(a *App) {
 		}
 	}
 	allowTaskbarCreated()
+	began := time.Now()
 	if !waitForTaskbar(a, cancel, 3*time.Minute) {
 		return
 	}
@@ -148,7 +201,7 @@ func runTray(a *App) {
 			systray.Quit()
 			return
 		}
-		a.logs.Add("app", "info", "Значок в трее создан")
+		a.logs.Add("app", "info", fmt.Sprintf("Значок в трее создан (через %.1f с после старта)", time.Since(began).Seconds()))
 		systray.SetTitle(appName)
 		mOpen := systray.AddMenuItem("Открыть "+appName, "")
 		mToggle := systray.AddMenuItem("Подключить", "")
@@ -191,6 +244,9 @@ func runTray(a *App) {
 			}
 		}
 		refresh()
+		// сразу после входа в Windows проводник может потерять установку значка:
+		// первые минуты подтверждаем картинку и подсказку заново
+		started := time.Now()
 		changes := make(chan string, 8)
 		a.core.OnChange(func(s string) {
 			select {
@@ -216,6 +272,9 @@ func runTray(a *App) {
 					refresh()
 				case <-time.After(10 * time.Second):
 					refresh()
+					if time.Since(started) < 3*time.Minute && last != "" {
+						apply(last)
+					}
 				}
 			}
 		}()

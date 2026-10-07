@@ -21,7 +21,7 @@ import (
 const appName = "Mejgorod"
 
 // appVersion - var, чтобы проверять обновление сборкой с другой версией (-X main.appVersion).
-var appVersion = "0.2.4"
+var appVersion = "0.2.5"
 
 // renameToCanonical - копия, которая ещё называется MihomoDesk.exe (до
 // переименования программы), после самообновления переименовывает себя в
@@ -114,6 +114,8 @@ func main() {
 		return
 	}
 	log.Printf("%s %s started, ui port %d, elevated=%v", appName, appVersion, app.port, isElevated())
+	app.logs.Add("app", "info", fmt.Sprintf("Запуск: автозагрузка=%v, права администратора=%v, сеть=%v, подключаться при запуске=%v",
+		*autostart, isElevated(), networkReady(), *connect || app.settings.Get().ConnectOnLaunch))
 
 	if !*autostart && !*noWindow {
 		go app.openWindow()
