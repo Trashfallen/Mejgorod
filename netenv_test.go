@@ -17,6 +17,7 @@ func TestCorpProductOf(t *testing.T) {
 	setCorpExtra("")
 	cases := []struct{ friendly, desc, want string }{
 		{"Citrix Virtual Adapter", "Citrix Virtual Adapter", "Citrix Secure Access"},
+		{"Подключение по локальной сети", "CP-TAP-Windows Adapter V9", "КриптоПро NGate"}, // NGate 1.0.20, как есть
 		{"Ethernet 3", "CryptoPro NGate Virtual Adapter", "КриптоПро NGate"},
 		{"NGate", "TAP-Windows Adapter V9", "КриптоПро NGate"},
 		{"Подключение по локальной сети", "Адаптер КриптоПро NGate", "КриптоПро NGate"},

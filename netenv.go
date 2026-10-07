@@ -95,13 +95,15 @@ func adapterAddresses() []*windows.IpAdapterAddresses {
 }
 
 // corpProducts - рабочие VPN, с которыми TUN должен ужиться. match - части
-// имени или описания адаптера в нижнем регистре.
+// имени или описания адаптера в нижнем регистре. NGate 1.0.20 ставит свой
+// TAP-драйвер: адаптер «CP-TAP-Windows Adapter V9» с именем «Подключение по
+// локальной сети», без слов ngate/cryptopro.
 var corpProducts = []struct {
 	name  string
 	match []string
 }{
 	{"Citrix Secure Access", []string{"citrix virtual adapter"}},
-	{"КриптоПро NGate", []string{"ngate", "cryptopro", "crypto pro", "криптопро", "крипто про"}},
+	{"КриптоПро NGate", []string{"cp-tap", "ngate", "cryptopro", "crypto pro", "криптопро", "крипто про"}},
 }
 
 const corpCustomName = "Рабочий VPN"
