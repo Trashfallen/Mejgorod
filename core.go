@@ -68,6 +68,23 @@ type Core struct {
 	onChange  []func(status string)
 	// abortReason - почему программа сама остановила ядро (петля и т.п.)
 	abortReason string
+	// errPermanent - последняя ошибка подключения не лечится повтором
+	errPermanent bool
+}
+
+// permanentError - ошибка, которую повторная попытка не исправит (нет прав,
+// конфига, серверов): подключение при запуске её не повторяет.
+type permanentError struct{ error }
+
+func (e permanentError) Unwrap() error { return e.error }
+
+func permanent(err error) error { return permanentError{err} }
+
+// ErrPermanent - последняя ошибка подключения не пройдёт от повтора.
+func (c *Core) ErrPermanent() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.errPermanent
 }
 
 func newCore(app *App) *Core {
@@ -125,6 +142,7 @@ func (c *Core) Connect() {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	c.cancel, c.stopping, c.errMsg, c.stage, c.abortReason = cancel, false, "", "Подготовка", ""
+	c.errPermanent = false
 	c.setLocked(stStarting)
 	c.mu.Unlock()
 	go c.run(ctx)
@@ -143,6 +161,8 @@ func (c *Core) run(ctx context.Context) {
 		return
 	}
 	c.errMsg = err.Error()
+	var pe permanentError
+	c.errPermanent = errors.As(err, &pe)
 	c.setLocked(stError)
 	c.app.logs.Add("app", "error", "Не удалось подключиться: "+err.Error())
 }
@@ -150,7 +170,7 @@ func (c *Core) run(ctx context.Context) {
 func (c *Core) launch(ctx context.Context) error {
 	a := c.app
 	if !isElevated() && !devNoTun {
-		return errors.New("нет прав администратора, без них TUN не создать. Перезапустите программу и подтвердите запрос Windows")
+		return permanent(errors.New("нет прав администратора, без них TUN не создать. Перезапустите программу и подтвердите запрос Windows"))
 	}
 	if !fileExists(a.paths.CoreExe) {
 		c.setStage("Скачиваю ядро mihomo")
@@ -160,7 +180,7 @@ func (c *Core) launch(ctx context.Context) error {
 	}
 	src, err := os.ReadFile(a.configPath())
 	if errors.Is(err, os.ErrNotExist) || (err == nil && strings.TrimSpace(string(src)) == "") {
-		return errors.New("нет конфига: выберите шаблон или вставьте свой на вкладке «Конфиг»")
+		return permanent(errors.New("нет конфига: выберите шаблон или вставьте свой на вкладке «Конфиг»"))
 	}
 	if err != nil {
 		return err
@@ -171,10 +191,10 @@ func (c *Core) launch(ctx context.Context) error {
 	env := a.buildEnv(string(src), servers)
 	ad, err := adaptConfigEnv(string(src), set, servers, env)
 	if err != nil {
-		return fmt.Errorf("конфиг: %w", err)
+		return permanent(fmt.Errorf("конфиг: %w", err))
 	}
 	if ad.NoServers {
-		return errors.New("нет ни одного сервера: добавьте ссылку vless:// на вкладке «Серверы»")
+		return permanent(errors.New("нет ни одного сервера: добавьте ссылку vless:// на вкладке «Серверы»"))
 	}
 	if !portFree(ad.Port) {
 		return fmt.Errorf("порт %d занят другой программой. Смените порт панели в настройках", ad.Port)

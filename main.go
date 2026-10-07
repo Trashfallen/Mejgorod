@@ -119,7 +119,7 @@ func main() {
 		go app.openWindow()
 	}
 	if *connect || app.settings.Get().ConnectOnLaunch {
-		app.core.Connect()
+		app.autoConnect()
 	}
 	if !app.settings.Get().NoUpdateCheck {
 		go func() {

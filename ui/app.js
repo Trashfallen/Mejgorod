@@ -1187,13 +1187,13 @@ function fillSettings(s) {
   $('#setPort').value = s.controllerPort;
 }
 
-async function saveSetting(patch, el) {
+async function saveSetting(patch, el, okMsg) {
   if (el) el.disabled = true;
   try {
     const s = await api('/settings', { method: 'PUT', body: patch });
     fillSettings(s);
     if (s.restartRequired) toast('Изменение вступит в силу после переподключения', 'warn', { label: 'Переподключить', fn: () => api('/restart', { method: 'POST' }) });
-    else toast('Сохранено', 'ok');
+    else toast(okMsg || 'Сохранено', 'ok');
   } catch (e) {
     toast(e.message, 'err');
     loadSettings();
@@ -1201,7 +1201,12 @@ async function saveSetting(patch, el) {
   if (el) el.disabled = false;
 }
 
-$('#setAutostart').addEventListener('change', (e) => saveSetting({ autostart: e.target.checked }, e.target));
+$('#setAutostart').addEventListener('change', (e) => {
+  // автозапуск без подключения - просто значок в трее: для VPN при входе нужны оба переключателя
+  const withConnect = e.target.checked && !$('#setConnect').checked;
+  saveSetting(withConnect ? { autostart: true, connectOnLaunch: true } : { autostart: e.target.checked }, e.target,
+    withConnect ? 'Включил и «Подключаться при запуске»: иначе VPN при входе в Windows сам не поднимется' : null);
+});
 $('#setConnect').addEventListener('change', (e) => saveSetting({ connectOnLaunch: e.target.checked }, e.target));
 $('#setStack').addEventListener('change', (e) => saveSetting({ tunStack: e.target.value }, e.target));
 $('#setStrict').addEventListener('change', (e) => saveSetting({ strictRoute: e.target.checked }, e.target));

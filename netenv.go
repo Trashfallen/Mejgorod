@@ -66,8 +66,9 @@ type CorpVPN struct {
 }
 
 const (
-	gaaSkipAnycast   = 0x2
-	gaaSkipMulticast = 0x4
+	gaaSkipAnycast     = 0x2
+	gaaSkipMulticast   = 0x4
+	gaaIncludeGateways = 0x80
 )
 
 func adapterAddresses() []*windows.IpAdapterAddresses {
@@ -75,7 +76,7 @@ func adapterAddresses() []*windows.IpAdapterAddresses {
 	for range 4 {
 		buf := make([]byte, size)
 		first := (*windows.IpAdapterAddresses)(unsafe.Pointer(&buf[0]))
-		err := windows.GetAdaptersAddresses(windows.AF_UNSPEC, gaaSkipAnycast|gaaSkipMulticast, 0, first, &size)
+		err := windows.GetAdaptersAddresses(windows.AF_UNSPEC, gaaSkipAnycast|gaaSkipMulticast|gaaIncludeGateways, 0, first, &size)
 		if err == windows.ERROR_BUFFER_OVERFLOW {
 			continue
 		}
@@ -110,6 +111,20 @@ func corpAdapter(list []*windows.IpAdapterAddresses) *windows.IpAdapterAddresses
 
 // corpVPNUp - быстрая проверка без DNS и реестра, для слежения.
 func corpVPNUp() bool { return corpAdapter(adapterAddresses()) != nil }
+
+// networkReady - есть ли у ПК сеть: работающий адаптер (не наш TUN) со шлюзом
+// по умолчанию. При входе в Windows Wi-Fi поднимается позже программы.
+func networkReady() bool {
+	for _, aa := range adapterAddresses() {
+		if aa.OperStatus != windows.IfOperStatusUp || windows.UTF16PtrToString(aa.FriendlyName) == tunDevice {
+			continue
+		}
+		if aa.FirstGatewayAddress != nil {
+			return true
+		}
+	}
+	return false
+}
 
 // detectCorpVPN ищет подключённый Citrix Secure Access и собирает его настройки.
 func detectCorpVPN() *CorpVPN {
