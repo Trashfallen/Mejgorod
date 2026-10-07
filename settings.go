@@ -18,6 +18,7 @@ type Settings struct {
 	ControllerPort  int    `json:"controllerPort"`          // порт API ядра и zashboard
 	UIPort          int    `json:"uiPort"`                  // порт окна программы
 	CorpAdapters    string `json:"corpAdapters,omitempty"`  // части имени адаптера рабочего VPN, если он не узнаётся сам
+	Theme           string `json:"theme,omitempty"`         // auto (как в Windows) | light | dark
 	Secret          string `json:"secret"`                  // secret для API, если его нет в конфиге
 }
 
@@ -25,6 +26,7 @@ func defaultSettings() Settings {
 	return Settings{
 		TunStack:       "mixed",
 		TunRoute:       "auto",
+		Theme:          "auto",
 		ControllerPort: 9090,
 		UIPort:         17890,
 		Secret:         randomHex(12),
@@ -51,6 +53,11 @@ func loadSettings(path string) *SettingsStore {
 	case "auto", "full", "split":
 	default:
 		st.s.TunRoute = "auto"
+	}
+	switch st.s.Theme {
+	case "auto", "light", "dark":
+	default:
+		st.s.Theme = "auto"
 	}
 	if st.s.ControllerPort <= 0 || st.s.ControllerPort > 65535 {
 		st.s.ControllerPort = 9090

@@ -344,6 +344,7 @@ func (a *App) settingsResp() map[string]any {
 		"updateCheck":     !s.NoUpdateCheck,
 		"controllerPort":  s.ControllerPort,
 		"corpAdapters":    s.CorpAdapters,
+		"theme":           s.Theme,
 		"autostart":       autostartEnabled(),
 		"exe":             a.paths.Exe,
 	}
@@ -362,6 +363,7 @@ func (a *App) hPutSettings(w http.ResponseWriter, r *http.Request) {
 		UpdateCheck     *bool   `json:"updateCheck"`
 		ControllerPort  *int    `json:"controllerPort"`
 		CorpAdapters    *string `json:"corpAdapters"`
+		Theme           *string `json:"theme"`
 		Autostart       *bool   `json:"autostart"`
 	}
 	if err := readJSON(r, &in); err != nil {
@@ -381,6 +383,14 @@ func (a *App) hPutSettings(w http.ResponseWriter, r *http.Request) {
 		case "mixed", "gvisor", "system":
 		default:
 			writeErr(w, 400, "неизвестный стек TUN")
+			return
+		}
+	}
+	if in.Theme != nil {
+		switch *in.Theme {
+		case "auto", "light", "dark":
+		default:
+			writeErr(w, 400, "неизвестная тема")
 			return
 		}
 	}
@@ -417,6 +427,9 @@ func (a *App) hPutSettings(w http.ResponseWriter, r *http.Request) {
 		}
 		if in.CorpAdapters != nil {
 			s.CorpAdapters = strings.TrimSpace(*in.CorpAdapters)
+		}
+		if in.Theme != nil {
+			s.Theme = *in.Theme
 		}
 	})
 	setCorpExtra(after.CorpAdapters)

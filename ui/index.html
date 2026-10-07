@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mejgorod</title>
 <link rel="icon" type="image/png" href="/favicon.png">
+<script src="/theme.js"></script>
 <link rel="stylesheet" href="/style.css">
 </head>
 <body class="st-stopped">
@@ -238,6 +239,18 @@
     <section class="page" id="page-settings">
       <header class="page-head"><h2>Настройки</h2></header>
       <div class="settings">
+        <div class="card">
+          <h3>Оформление</h3>
+          <label class="row">
+            <div class="row-text"><b>Тема</b><span>«Авто» берёт тему из настроек Windows и меняется вместе с ней</span></div>
+            <select id="setTheme">
+              <option value="auto">Авто</option>
+              <option value="light">Светлая</option>
+              <option value="dark">Тёмная</option>
+            </select>
+          </label>
+        </div>
+
         <div class="card">
           <h3>Запуск</h3>
           <label class="row">

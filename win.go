@@ -50,7 +50,11 @@ func relaunchElevated(args []string) error {
 // acquireInstanceMutex возвращает exists=true, если программа уже запущена.
 // ACCESS_DENIED тоже значит "уже есть": мьютекс создал процесс с правами админа.
 func acquireInstanceMutex() (windows.Handle, bool) {
-	name, _ := windows.UTF16PtrFromString(`Local\Mejgorod.Instance`)
+	mutexName := `Local\Mejgorod.Instance`
+	if v := os.Getenv("MEJGOROD_INSTANCE"); v != "" {
+		mutexName += "." + v // отладочная копия рядом с рабочей
+	}
+	name, _ := windows.UTF16PtrFromString(mutexName)
 	h, err := windows.CreateMutex(nil, false, name)
 	if err == windows.ERROR_ALREADY_EXISTS || err == windows.ERROR_ACCESS_DENIED {
 		if h != 0 {

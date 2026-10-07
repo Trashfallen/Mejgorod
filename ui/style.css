@@ -34,38 +34,38 @@
   --t-punc: #8a94a3;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color-scheme: light;
-    --bg: #f4f6f9;
-    --side: #eceff4;
-    --panel: #ffffff;
-    --panel-2: #f5f7fa;
-    --panel-3: #eaeef3;
-    --line: #e1e6ed;
-    --line-2: #d3dae3;
-    --text: #18202b;
-    --muted: #5d6878;
-    --faint: #98a2b1;
-    --accent: #0f9e8e;
-    --accent-2: #0b7f73;
-    --accent-soft: rgba(15, 158, 142, 0.12);
-    --accent-text: #0b7f73;
-    --ok: #0f9960;
-    --warn: #b7791f;
-    --err: #d64545;
-    --err-soft: rgba(214, 69, 69, 0.1);
-    --warn-soft: rgba(183, 121, 31, 0.12);
-    --shadow: 0 10px 30px rgba(20, 30, 45, 0.12);
-    --t-key: #1d64b8;
-    --t-str: #3f7d20;
-    --t-num: #b3541e;
-    --t-bool: #b3541e;
-    --t-com: #8b95a3;
-    --t-anc: #8a3fc7;
-    --t-kw: #0b7f73;
-    --t-punc: #6b7686;
-  }
+/* светлая тема: data-theme выставляет theme.js (по выбору или по настройке Windows) */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #f4f6f9;
+  --side: #eceff4;
+  --panel: #ffffff;
+  --panel-2: #f5f7fa;
+  --panel-3: #eaeef3;
+  --line: #e1e6ed;
+  --line-2: #d3dae3;
+  --text: #18202b;
+  --muted: #5d6878;
+  --faint: #98a2b1;
+  --accent: #0f9e8e;
+  --accent-2: #0b7f73;
+  --accent-soft: rgba(15, 158, 142, 0.12);
+  --accent-text: #0b7f73;
+  --ok: #0f9960;
+  --warn: #b7791f;
+  --err: #d64545;
+  --err-soft: rgba(214, 69, 69, 0.1);
+  --warn-soft: rgba(183, 121, 31, 0.12);
+  --shadow: 0 10px 30px rgba(20, 30, 45, 0.12);
+  --t-key: #1d64b8;
+  --t-str: #3f7d20;
+  --t-num: #b3541e;
+  --t-bool: #b3541e;
+  --t-com: #8b95a3;
+  --t-anc: #8a3fc7;
+  --t-kw: #0b7f73;
+  --t-punc: #6b7686;
 }
 
 * { box-sizing: border-box; }
