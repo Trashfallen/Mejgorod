@@ -253,7 +253,7 @@
         <div class="card">
           <h3>TUN</h3>
           <label class="row">
-            <div class="row-text"><b>Стек</b><span>mixed подходит почти всем. gvisor - если что-то не работает, system - быстрее всех, но требует разрешения в брандмауэре. Рядом с Citrix программа сама берёт gvisor</span></div>
+            <div class="row-text"><b>Стек</b><span>mixed подходит почти всем. gvisor - если что-то не работает, system - быстрее всех, но требует разрешения в брандмауэре. Рядом с рабочим VPN (Citrix, NGate) программа сама берёт gvisor</span></div>
             <select id="setStack">
               <option value="mixed">mixed</option>
               <option value="gvisor">gvisor</option>
@@ -261,12 +261,16 @@
             </select>
           </label>
           <label class="row">
-            <div class="row-text"><b>Маршруты</b><span>«Авто»: весь трафик, а рядом с рабочим VPN (Citrix) - только нужное, чтобы не мешать ему. «Только нужное»: в TUN идут адреса fake-ip и подсети из правил, остальное мимо</span></div>
+            <div class="row-text"><b>Маршруты</b><span>«Авто»: весь трафик, а рядом с рабочим VPN (Citrix, КриптоПро NGate) - только нужное, чтобы не мешать ему. «Только нужное»: в TUN идут адреса fake-ip и подсети из правил, остальное мимо</span></div>
             <select id="setRoute">
               <option value="auto">Авто</option>
               <option value="full">Весь трафик</option>
               <option value="split">Только нужное</option>
             </select>
+          </label>
+          <label class="row">
+            <div class="row-text"><b>Рабочий VPN: имя адаптера</b><span>Citrix и КриптоПро NGate программа узнаёт сама. Если рабочий VPN не узнан, впишите часть имени его сетевого адаптера (как в «Сетевых подключениях»), несколько - через запятую. Рядом с ним в TUN идёт только нужное</span></div>
+            <input type="text" class="text" id="setCorp" placeholder="например, ngate" spellcheck="false">
           </label>
           <label class="row">
             <div class="row-text"><b>Строгая маршрутизация</b><span>strict-route: DNS не утекает мимо VPN. Может мешать другим VPN и доступу к локальной сети</span></div>

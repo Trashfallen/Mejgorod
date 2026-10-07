@@ -1185,6 +1185,7 @@ function fillSettings(s) {
   $('#setRoute').value = s.tunRoute || 'auto';
   $('#setUpdCheck').checked = s.updateCheck !== false;
   $('#setPort').value = s.controllerPort;
+  $('#setCorp').value = s.corpAdapters || '';
 }
 
 async function saveSetting(patch, el, okMsg) {
@@ -1212,6 +1213,7 @@ $('#setStack').addEventListener('change', (e) => saveSetting({ tunStack: e.targe
 $('#setStrict').addEventListener('change', (e) => saveSetting({ strictRoute: e.target.checked }, e.target));
 $('#setRoute').addEventListener('change', (e) => saveSetting({ tunRoute: e.target.value }, e.target));
 $('#setUpdCheck').addEventListener('change', (e) => saveSetting({ updateCheck: e.target.checked }, e.target));
+$('#setCorp').addEventListener('change', (e) => saveSetting({ corpAdapters: e.target.value }, e.target));
 $('#setPort').addEventListener('change', (e) => saveSetting({ controllerPort: parseInt(e.target.value, 10) || 0 }, e.target));
 
 function renderCoreBlock() {

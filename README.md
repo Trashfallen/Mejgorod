@@ -15,7 +15,7 @@ One-click Windows VPN client on the [mihomo](https://github.com/MetaCubeX/mihomo
 - **Groups board.** Two columns, "Via VPN" and "Direct". Drag a service (YouTube, Discord, ...) between them or click it to pick a specific server. Works with the VPN off too: the choice is applied on connect.
 - **Your own sites and apps.** The "+" button in a column adds a site or a program. For a site, its domains are looked up in the MetaCubeX geosite/geoip lists (instagram.com -> 74 domains, auto-updated). For a program, all its traffic goes the chosen way (`PROCESS-NAME`).
 - **Logs and checks.** Core logs with filters. The config is validated by the core before start, and errors jump to the line in the editor.
-- **Works next to Citrix.** Coexists with Citrix Secure Access (see below).
+- **Works next to a work VPN.** Coexists with Citrix Secure Access and CryptoPro NGate (see below).
 - **Updates.** On start the app checks the releases of this repository. "Update" downloads the new exe, swaps it and restarts without a UAC prompt, the window stays open.
 - **Light.** While the window is hidden, it barely polls. The config is re-read only when it changes, and the connection list is fetched from the core only while someone is looking.
 - **Portable.** Everything is stored next to the exe. The mihomo core is downloaded from the official releases on the first connect.
@@ -69,7 +69,7 @@ rules:
 
 The section goes first in `rules`, so an explicit choice wins over the other rules. Lists found for sites go into a similar section at the end of `rule-providers`. Do not edit lines between the markers by hand: the Groups tab rewrites them. Profiles saved before the app was renamed from MihomoDesk keep working: their old `# MihomoDesk: ...` markers are still recognized and get migrated to the new ones on the next edit.
 
-## Next to Citrix Secure Access
+## Next to Citrix Secure Access and CryptoPro NGate
 
 Citrix intercepts outgoing packets, puts "foreign" ones back into the Windows stack and resets connections it does not like. A regular TUN with a default route cannot live with it. The core catches its own connections (thousands of `reject loopback`, the PC slows down), and Citrix routes its own gateway through TUN and breaks itself.
 
@@ -80,7 +80,9 @@ While Citrix is connected, the "Auto" route mode (Settings -> TUN -> Routes) swi
 - the Citrix gateway and the servers are excluded from TUN;
 - the TUN stack is forced to gvisor, because Citrix resets packets of the system and mixed stacks.
 
-If Citrix connects or disconnects while the VPN is on, the app reconnects by itself. If a routing loop still happens, the VPN turns off within a few seconds, and core log output is capped at 100 lines per second.
+CryptoPro NGate is handled the same way (it is recognized by the name of its network adapter). If another work VPN is not recognized, type part of its adapter name (as shown in "Network connections") in Settings -> TUN -> "Work VPN: adapter name", and the app treats it the same way.
+
+If Citrix or NGate connects or disconnects while the VPN is on, the app reconnects by itself. If a routing loop still happens, the VPN turns off within a few seconds, and core log output is capped at 100 lines per second.
 
 ## Building
 
@@ -111,8 +113,8 @@ go test -run TestAdaptRealConfig -v .
 
 The app updates itself from the latest release of this repository:
 
-1. Run `release.cmd 0.2.1` (the next version). It builds `release\Mejgorod.exe` and `release\Mejgorod-0.2.1.zip` (exe + mihomo core + a short guide).
-2. Create a release with the tag `v0.2.1` and attach both files. The exe must be named exactly `Mejgorod.exe`: the app downloads it when updating. The zip is for people installing from scratch.
+1. Run `release.cmd 0.2.2` (the next version). It builds `release\Mejgorod.exe` and `release\Mejgorod-0.2.2.zip` (exe + mihomo core + a short guide).
+2. Create a release with the tag `v0.2.2` and attach both files. The exe must be named exactly `Mejgorod.exe`: the app downloads it when updating. The zip is for people installing from scratch.
 3. Bump the default version in `main.go` and `build.cmd`.
 
 Apps with an older version offer the update on start. The version only goes up: a release with a lower number is never offered.

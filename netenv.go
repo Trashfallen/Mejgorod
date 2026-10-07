@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"time"
 	"unsafe"
 
@@ -93,24 +94,79 @@ func adapterAddresses() []*windows.IpAdapterAddresses {
 	return nil
 }
 
-// corpAdapter - адаптер подключённого Citrix Secure Access (есть IPv4), иначе nil.
-func corpAdapter(list []*windows.IpAdapterAddresses) *windows.IpAdapterAddresses {
+// corpProducts - рабочие VPN, с которыми TUN должен ужиться. match - части
+// имени или описания адаптера в нижнем регистре.
+var corpProducts = []struct {
+	name  string
+	match []string
+}{
+	{"Citrix Secure Access", []string{"citrix virtual adapter"}},
+	{"КриптоПро NGate", []string{"ngate", "cryptopro", "crypto pro", "криптопро", "крипто про"}},
+}
+
+const corpCustomName = "Рабочий VPN"
+
+// corpExtra - свои части имени адаптера из настроек (если программа сама
+// не узнаёт рабочий VPN).
+var corpExtra atomic.Pointer[[]string]
+
+// setCorpExtra принимает список через запятую или точку с запятой.
+func setCorpExtra(list string) {
+	var out []string
+	for _, p := range strings.FieldsFunc(list, func(r rune) bool { return r == ',' || r == ';' || r == '\n' }) {
+		if p = strings.ToLower(strings.TrimSpace(p)); p != "" {
+			out = append(out, p)
+		}
+	}
+	corpExtra.Store(&out)
+}
+
+// corpProductOf - название рабочего VPN по имени и описанию адаптера, "" - не он.
+func corpProductOf(friendly, desc string) string {
+	text := strings.ToLower(friendly + " " + desc)
+	for _, pr := range corpProducts {
+		for _, m := range pr.match {
+			if strings.Contains(text, m) {
+				return pr.name
+			}
+		}
+	}
+	if extra := corpExtra.Load(); extra != nil {
+		for _, m := range *extra {
+			if strings.Contains(text, m) {
+				return corpCustomName
+			}
+		}
+	}
+	return ""
+}
+
+// corpAdapter - адаптер подключённого рабочего VPN (есть IPv4) и его название, иначе nil.
+func corpAdapter(list []*windows.IpAdapterAddresses) (*windows.IpAdapterAddresses, string) {
 	for _, aa := range list {
-		desc := windows.UTF16PtrToString(aa.Description)
-		if aa.OperStatus != windows.IfOperStatusUp || !strings.Contains(desc, "Citrix Virtual Adapter") {
+		friendly := windows.UTF16PtrToString(aa.FriendlyName)
+		if aa.OperStatus != windows.IfOperStatusUp || friendly == tunDevice {
+			continue
+		}
+		name := corpProductOf(friendly, windows.UTF16PtrToString(aa.Description))
+		if name == "" {
 			continue
 		}
 		for u := aa.FirstUnicastAddress; u != nil; u = u.Next {
 			if ip := u.Address.IP(); ip.To4() != nil && !ip.IsLinkLocalUnicast() {
-				return aa
+				return aa, name
 			}
 		}
 	}
-	return nil
+	return nil, ""
 }
 
-// corpVPNUp - быстрая проверка без DNS и реестра, для слежения.
-func corpVPNUp() bool { return corpAdapter(adapterAddresses()) != nil }
+// corpVPNName - название подключённого рабочего VPN, "" - его нет. Быстрая
+// проверка без DNS и реестра, для слежения.
+func corpVPNName() string {
+	_, name := corpAdapter(adapterAddresses())
+	return name
+}
 
 // networkReady - есть ли у ПК сеть: работающий адаптер (не наш TUN) со шлюзом
 // по умолчанию. При входе в Windows Wi-Fi поднимается позже программы.
@@ -126,11 +182,11 @@ func networkReady() bool {
 	return false
 }
 
-// detectCorpVPN ищет подключённый Citrix Secure Access и собирает его настройки.
+// detectCorpVPN ищет подключённый рабочий VPN (Citrix, NGate) и собирает его настройки.
 func detectCorpVPN() *CorpVPN {
 	list := adapterAddresses()
-	if aa := corpAdapter(list); aa != nil {
-		vpn := &CorpVPN{Name: "Citrix Secure Access"}
+	if aa, name := corpAdapter(list); aa != nil {
+		vpn := &CorpVPN{Name: name}
 		for d := aa.FirstDnsServerAddress; d != nil; d = d.Next {
 			if ip := d.Address.IP(); ip.To4() != nil {
 				vpn.DNS = append(vpn.DNS, ip.String())
@@ -151,7 +207,9 @@ func detectCorpVPN() *CorpVPN {
 			k.Close()
 		}
 		vpn.Suffixes = cleanDomains(sfx)
-		vpn.Gateway = citrixGateway()
+		if name == "Citrix Secure Access" {
+			vpn.Gateway = citrixGateway()
+		}
 		if vpn.Gateway != "" {
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 			ips, _ := net.DefaultResolver.LookupIPAddr(ctx, vpn.Gateway)

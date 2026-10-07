@@ -58,6 +58,7 @@ func newApp(p Paths, token string) (*App, error) {
 		token:    token,
 	}
 	a.core = newCore(a)
+	setCorpExtra(a.settings.Get().CorpAdapters)
 	a.migrateProfiles()
 	// недокачанное обновление ядра с прошлого раза
 	_ = os.Remove(p.CoreExe + ".new")

@@ -292,7 +292,11 @@ func (c *Core) launch(ctx context.Context) error {
 	a.logs.Add("app", "info", "Подключено")
 	go c.watchTraffic(ad.Port, ad.Secret, done)
 	if !devNoTun && set.TunRoute == "auto" {
-		go c.watchCorpVPN(env.CorpVPN != nil, done)
+		wasName := ""
+		if env.CorpVPN != nil {
+			wasName = env.CorpVPN.Name
+		}
+		go c.watchCorpVPN(wasName, done)
 	}
 	go func() {
 		a.applyActiveServer()
@@ -424,10 +428,10 @@ func (c *Core) pumpLogs(r io.Reader) {
 			if loops++; loops == loopLimit {
 				reason := "Петля в сети: ядро ловит собственные соединения через TUN. " +
 					"VPN отключён, чтобы не вешать компьютер. Подробности на вкладке «Логи»"
-				if detectCorpVPN() != nil {
-					reason = "VPN отключён: мешает Citrix Secure Access (рабочий VPN). " +
+				if name := corpVPNName(); name != "" {
+					reason = "VPN отключён: мешает " + name + " (рабочий VPN). " +
 						"Он перехватывает соединения ядра и отправляет их обратно в TUN. " +
-						"Отключите Citrix на время работы Mejgorod"
+						"Отключите его на время работы Mejgorod"
 				}
 				go c.abort(reason)
 			}
@@ -466,22 +470,23 @@ func (c *Core) abort(reason string) {
 	c.terminate(cmd, done)
 }
 
-// watchCorpVPN переподключает VPN, когда Citrix подключили или отключили:
-// режим маршрутов «Авто» зависит от него.
-func (c *Core) watchCorpVPN(was bool, done chan struct{}) {
+// watchCorpVPN переподключает VPN, когда рабочий VPN (Citrix, NGate)
+// подключили или отключили: режим маршрутов «Авто» зависит от него.
+// wasName - название рабочего VPN при запуске, "" - его не было.
+func (c *Core) watchCorpVPN(wasName string, done chan struct{}) {
 	for {
 		select {
 		case <-done:
 			return
 		case <-time.After(5 * time.Second):
 		}
-		if now := corpVPNUp(); now != was {
+		if now := corpVPNName(); (now != "") != (wasName != "") {
 			if c.Status() != stRunning {
 				return
 			}
-			msg := "Citrix Secure Access отключён: возвращаю весь трафик в TUN, переподключаюсь"
-			if now {
-				msg = "Подключён Citrix Secure Access: переподключаюсь в режиме совместимости"
+			msg := wasName + " отключён: возвращаю весь трафик в TUN, переподключаюсь"
+			if now != "" {
+				msg = "Подключён " + now + ": переподключаюсь в режиме совместимости"
 			}
 			c.app.logs.Add("app", "info", msg)
 			go c.Restart()

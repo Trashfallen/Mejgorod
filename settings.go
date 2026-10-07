@@ -17,6 +17,7 @@ type Settings struct {
 	ActiveProfile   string `json:"activeProfile,omitempty"` // профиль (data/profiles/<имя>.yaml)
 	ControllerPort  int    `json:"controllerPort"`          // порт API ядра и zashboard
 	UIPort          int    `json:"uiPort"`                  // порт окна программы
+	CorpAdapters    string `json:"corpAdapters,omitempty"`  // части имени адаптера рабочего VPN, если он не узнаётся сам
 	Secret          string `json:"secret"`                  // secret для API, если его нет в конфиге
 }
 

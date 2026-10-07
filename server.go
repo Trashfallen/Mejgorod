@@ -343,6 +343,7 @@ func (a *App) settingsResp() map[string]any {
 		"tunRoute":        s.TunRoute,
 		"updateCheck":     !s.NoUpdateCheck,
 		"controllerPort":  s.ControllerPort,
+		"corpAdapters":    s.CorpAdapters,
 		"autostart":       autostartEnabled(),
 		"exe":             a.paths.Exe,
 	}
@@ -360,6 +361,7 @@ func (a *App) hPutSettings(w http.ResponseWriter, r *http.Request) {
 		TunRoute        *string `json:"tunRoute"`
 		UpdateCheck     *bool   `json:"updateCheck"`
 		ControllerPort  *int    `json:"controllerPort"`
+		CorpAdapters    *string `json:"corpAdapters"`
 		Autostart       *bool   `json:"autostart"`
 	}
 	if err := readJSON(r, &in); err != nil {
@@ -413,13 +415,17 @@ func (a *App) hPutSettings(w http.ResponseWriter, r *http.Request) {
 		if in.ControllerPort != nil {
 			s.ControllerPort = *in.ControllerPort
 		}
+		if in.CorpAdapters != nil {
+			s.CorpAdapters = strings.TrimSpace(*in.CorpAdapters)
+		}
 	})
+	setCorpExtra(after.CorpAdapters)
 	if err != nil {
 		writeErr(w, 500, err.Error())
 		return
 	}
 	coreAffected := before.TunStack != after.TunStack || before.StrictRoute != after.StrictRoute || before.TunRoute != after.TunRoute ||
-		before.ControllerPort != after.ControllerPort
+		before.ControllerPort != after.ControllerPort || before.CorpAdapters != after.CorpAdapters
 	st := a.core.Status()
 	resp := a.settingsResp()
 	resp["restartRequired"] = coreAffected && (st == stRunning || st == stStarting)

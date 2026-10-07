@@ -11,3 +11,37 @@ func TestNetEnv(t *testing.T) {
 		t.Log("corp VPN: нет")
 	}
 }
+
+func TestCorpProductOf(t *testing.T) {
+	t.Cleanup(func() { setCorpExtra("") })
+	setCorpExtra("")
+	cases := []struct{ friendly, desc, want string }{
+		{"Citrix Virtual Adapter", "Citrix Virtual Adapter", "Citrix Secure Access"},
+		{"Ethernet 3", "CryptoPro NGate Virtual Adapter", "КриптоПро NGate"},
+		{"NGate", "TAP-Windows Adapter V9", "КриптоПро NGate"},
+		{"Подключение по локальной сети", "Адаптер КриптоПро NGate", "КриптоПро NGate"},
+		{"Radmin VPN", "Famatech Radmin VPN Ethernet Adapter", ""},
+		{"Беспроводная сеть", "RZ616 Wi-Fi 6E 160MHz", ""},
+		{"Подключение по локальной сети* 6", "WAN Miniport (IP)", ""},
+	}
+	for _, c := range cases {
+		if got := corpProductOf(c.friendly, c.desc); got != c.want {
+			t.Errorf("corpProductOf(%q, %q) = %q, want %q", c.friendly, c.desc, got, c.want)
+		}
+	}
+}
+
+func TestCorpExtraFromSettings(t *testing.T) {
+	t.Cleanup(func() { setCorpExtra("") })
+	setCorpExtra(" Acme VPN ; tap-corp,\n")
+	if got := corpProductOf("Ethernet 5", "ACME VPN Adapter"); got != corpCustomName {
+		t.Fatalf("свой адаптер не узнан: %q", got)
+	}
+	if got := corpProductOf("TAP-Corp", "TAP-Windows Adapter V9"); got != corpCustomName {
+		t.Fatalf("второй адаптер не узнан: %q", got)
+	}
+	setCorpExtra("")
+	if got := corpProductOf("Ethernet 5", "ACME VPN Adapter"); got != "" {
+		t.Fatalf("после очистки адаптер всё ещё узнаётся: %q", got)
+	}
+}

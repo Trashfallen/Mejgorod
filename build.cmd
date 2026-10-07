@@ -6,7 +6,7 @@ cd /d "%~dp0"
 set "OUT=%~1"
 if "%OUT%"=="" set "OUT=dist\Mejgorod.exe"
 rem App version: "set VERSION=1.2.1" before running, default below
-if "%VERSION%"=="" set "VERSION=0.2.1"
+if "%VERSION%"=="" set "VERSION=0.2.2"
 go run ./cmd/genicon winres || exit /b 1
 go run github.com/tc-hib/go-winres@latest simply --icon winres/icon.png --manifest gui --arch amd64 ^
   --product-name Mejgorod --file-description "Mejgorod VPN (mihomo core)" ^
