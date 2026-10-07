@@ -1,7 +1,6 @@
 @echo off
 rem Build a release into its own folder release\vVERSION with only what goes to GitHub:
 rem   Mejgorod.exe          - for the in-app update (attach as is)
-rem   MihomoDesk.exe        - the same exe under the old name: copies older than 0.2.0 look for it when updating
 rem   Mejgorod-VERSION.zip  - for people: exe + mihomo core + short guide
 rem Usage: release.cmd 0.2.3
 setlocal
@@ -20,7 +19,6 @@ if not exist dist\data\core\mihomo.exe (
 if exist "%OUT%" rmdir /s /q "%OUT%"
 mkdir "%OUT%" || exit /b 1
 call "%~dp0build.cmd" "%OUT%\Mejgorod.exe" || exit /b 1
-copy /y "%OUT%\Mejgorod.exe" "%OUT%\MihomoDesk.exe" >nul || exit /b 1
 if exist "%STAGE%" rmdir /s /q "%STAGE%"
 mkdir "%STAGE%\Mejgorod\data\core" || exit /b 1
 copy /y "%OUT%\Mejgorod.exe" "%STAGE%\Mejgorod\" >nul || exit /b 1
