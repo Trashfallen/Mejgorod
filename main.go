@@ -21,7 +21,7 @@ import (
 const appName = "Mejgorod"
 
 // appVersion - var, чтобы проверять обновление сборкой с другой версией (-X main.appVersion).
-var appVersion = "0.2.3"
+var appVersion = "0.2.4"
 
 // renameToCanonical - копия, которая ещё называется MihomoDesk.exe (до
 // переименования программы), после самообновления переименовывает себя в
