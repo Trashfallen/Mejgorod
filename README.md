@@ -113,8 +113,8 @@ go test -run TestAdaptRealConfig -v .
 
 The app updates itself from the latest release of this repository:
 
-1. Run `release.cmd 0.2.5` (the next version). It creates the folder `release\v0.2.5` with exactly what goes to GitHub: `Mejgorod.exe` and `Mejgorod-0.2.5.zip` (exe + mihomo core + a short guide).
-2. Create a release with the tag `v0.2.5` and attach all files from that folder. The exe must be named exactly `Mejgorod.exe`: the app downloads it when updating. The zip is for people installing from scratch.
+1. Run `release.cmd 0.2.6` (the next version). It creates the folder `release\v0.2.6` with exactly what goes to GitHub: `Mejgorod.exe` and `Mejgorod-0.2.6.zip` (exe + mihomo core + a short guide).
+2. Create a release with the tag `v0.2.6` and attach all files from that folder. The exe must be named exactly `Mejgorod.exe`: the app downloads it when updating. The zip is for people installing from scratch.
 3. Bump the default version in `main.go` and `build.cmd`.
 
 Apps with an older version offer the update on start. The version only goes up: a release with a lower number is never offered.

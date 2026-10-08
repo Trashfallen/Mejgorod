@@ -19,7 +19,7 @@ import (
 const appName = "Mejgorod"
 
 // appVersion - var, чтобы проверять обновление сборкой с другой версией (-X main.appVersion).
-var appVersion = "0.2.5"
+var appVersion = "0.2.6"
 
 func main() {
 	defer func() {

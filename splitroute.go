@@ -378,19 +378,31 @@ func (e Env) fakeIPFilter() []string {
 		for _, s := range e.CorpVPN.Suffixes {
 			out = append(out, "+."+s)
 		}
-		if g := e.CorpVPN.Gateway; g != "" {
-			out = append(out, g)
-		}
+		out = append(out, e.CorpVPN.Gateways...)
 	}
 	return out
 }
 
-// nameserverPolicy - внутренние домены VPN резолвит его DNS.
+// nameserverPolicy - внутренние домены VPN резолвит его DNS, а сами шлюзы -
+// DNS локальной сети: имя шлюза часто лежит в том же домене, но его DNS
+// живёт внутри туннеля, и пока туннель закрыт (обрыв, переподключение),
+// клиент не смог бы узнать адрес шлюза и подключиться заново. Запись для
+// конкретного хоста главнее записи для суффикса (проверено на ядре).
 func (e Env) nameserverPolicy() [][2]string {
-	if e.CorpVPN == nil || len(e.CorpVPN.DNS) == 0 {
+	if e.CorpVPN == nil {
 		return nil
 	}
 	var out [][2]string
+	lan := e.CorpVPN.GatewayDNS
+	if lan == "" {
+		lan = "1.1.1.1"
+	}
+	for _, g := range e.CorpVPN.Gateways {
+		out = append(out, [2]string{g, lan})
+	}
+	if len(e.CorpVPN.DNS) == 0 {
+		return out
+	}
 	for _, s := range e.CorpVPN.Suffixes {
 		out = append(out, [2]string{"+." + s, e.CorpVPN.DNS[0]})
 	}

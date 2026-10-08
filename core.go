@@ -470,17 +470,30 @@ func (c *Core) abort(reason string) {
 	c.terminate(cmd, done)
 }
 
+// corpChangeChecks - сколько проверок подряд (по 5 с) смена состояния рабочего VPN
+// должна держаться, чтобы мы переподключились.
+const corpChangeChecks = 3
+
 // watchCorpVPN переподключает VPN, когда рабочий VPN (Citrix, NGate)
 // подключили или отключили: режим маршрутов «Авто» зависит от него.
 // wasName - название рабочего VPN при запуске, "" - его не было.
 func (c *Core) watchCorpVPN(wasName string, done chan struct{}) {
+	// рабочий VPN при обрыве на несколько секунд убирает адаптер и тут же
+	// возвращает: переподключаться на каждый такой всплеск нельзя, это рвало
+	// ему и наш канал. Смену принимаем, только когда она держится несколько проверок.
+	changed := 0
 	for {
 		select {
 		case <-done:
 			return
 		case <-time.After(5 * time.Second):
 		}
-		if now := corpVPNName(); (now != "") != (wasName != "") {
+		now := corpVPNName()
+		if (now != "") == (wasName != "") {
+			changed = 0
+			continue
+		}
+		if changed++; changed >= corpChangeChecks {
 			if c.Status() != stRunning {
 				return
 			}

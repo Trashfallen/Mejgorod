@@ -46,3 +46,24 @@ func TestCorpExtraFromSettings(t *testing.T) {
 		t.Fatalf("после очистки адаптер всё ещё узнаётся: %q", got)
 	}
 }
+
+func TestHostOf(t *testing.T) {
+	cases := map[string]string{
+		"https://remote.example.ru":       "remote.example.ru",
+		"https://Remote.Example.ru:8443/": "remote.example.ru",
+		"remote.example.ru":               "remote.example.ru",
+		"remote.example.ru:443":           "remote.example.ru",
+		"  https://10.1.2.3/path ":        "10.1.2.3",
+		"":                                "",
+	}
+	for in, want := range cases {
+		if got := hostOf(in); got != want {
+			t.Errorf("hostOf(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+// Только печатает: что нашлось в настройках NGate на этом ПК.
+func TestNgateGateways(t *testing.T) {
+	t.Logf("ngateGateways=%v", ngateGateways())
+}

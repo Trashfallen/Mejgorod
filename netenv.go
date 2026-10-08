@@ -62,8 +62,9 @@ type CorpVPN struct {
 	Name       string
 	DNS        []string // DNS-серверы адаптера VPN
 	Suffixes   []string // внутренние домены: их резолвит DNS VPN, без fake-ip
-	Gateway    string   // хост шлюза
+	Gateways   []string // хосты шлюзов: им нужен настоящий адрес, и мимо TUN
 	GatewayIPs []string
+	GatewayDNS string // DNS локальной сети: им резолвятся шлюзы, пока туннель закрыт
 }
 
 const (
@@ -209,12 +210,20 @@ func detectCorpVPN() *CorpVPN {
 			k.Close()
 		}
 		vpn.Suffixes = cleanDomains(sfx)
-		if name == "Citrix Secure Access" {
-			vpn.Gateway = citrixGateway()
+		switch name {
+		case "Citrix Secure Access":
+			if g := citrixGateway(); g != "" {
+				vpn.Gateways = []string{g}
+			}
+		case "КриптоПро NGate":
+			vpn.Gateways = ngateGateways()
 		}
-		if vpn.Gateway != "" {
+		if len(vpn.Gateways) > 0 {
+			vpn.GatewayDNS = lanDNS(list)
+		}
+		for _, g := range vpn.Gateways {
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-			ips, _ := net.DefaultResolver.LookupIPAddr(ctx, vpn.Gateway)
+			ips, _ := net.DefaultResolver.LookupIPAddr(ctx, g)
 			cancel()
 			for _, ip := range ips {
 				if ip.IP.To4() != nil {
@@ -244,6 +253,70 @@ func citrixGateway() string {
 		return ""
 	}
 	return u.Hostname()
+}
+
+// lanDNS - DNS-сервер, которым ПК пользовался бы без VPN: IPv4 DNS первого
+// работающего адаптера со шлюзом по умолчанию (не TUN и не адаптер VPN).
+func lanDNS(list []*windows.IpAdapterAddresses) string {
+	for _, aa := range list {
+		friendly := windows.UTF16PtrToString(aa.FriendlyName)
+		if aa.OperStatus != windows.IfOperStatusUp || aa.FirstGatewayAddress == nil || friendly == tunDevice ||
+			corpProductOf(friendly, windows.UTF16PtrToString(aa.Description)) != "" {
+			continue
+		}
+		for d := aa.FirstDnsServerAddress; d != nil; d = d.Next {
+			if ip := d.Address.IP(); ip.To4() != nil && !ip.IsLoopback() {
+				return ip.String()
+			}
+		}
+	}
+	return ""
+}
+
+// hostOf - хост из адреса шлюза: «https://host:443/путь», «host:443» или «host».
+func hostOf(addr string) string {
+	addr = strings.TrimSpace(addr)
+	if addr == "" {
+		return ""
+	}
+	if !strings.Contains(addr, "://") {
+		addr = "https://" + addr
+	}
+	u, err := url.Parse(addr)
+	if err != nil {
+		return ""
+	}
+	return strings.ToLower(u.Hostname())
+}
+
+// ngateGateways - шлюзы из настроек клиента КриптоПро NGate
+// (HKCU, Software\Crypto Pro\NGateClient\connections\N, значение url).
+// Без их адреса соединение клиента со шлюзом попадало в наш TUN через
+// fake-ip и шло поверх нашего VPN: туннель в туннеле рвётся при любом
+// колебании нашего канала.
+func ngateGateways() []string {
+	const base = `Software\Crypto Pro\NGateClient\connections`
+	root, err := registry.OpenKey(registry.CURRENT_USER, base, registry.ENUMERATE_SUB_KEYS)
+	if err != nil {
+		return nil
+	}
+	defer root.Close()
+	names, _ := root.ReadSubKeyNames(-1)
+	var out []string
+	seen := map[string]bool{}
+	for _, n := range names {
+		k, err := registry.OpenKey(registry.CURRENT_USER, base+`\`+n, registry.QUERY_VALUE)
+		if err != nil {
+			continue
+		}
+		v, _, err := k.GetStringValue("url")
+		k.Close()
+		if h := hostOf(v); err == nil && h != "" && !seen[h] {
+			seen[h] = true
+			out = append(out, h)
+		}
+	}
+	return out
 }
 
 func cleanDomains(in []string) []string {

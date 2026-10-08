@@ -83,7 +83,7 @@ func TestPlanSplit(t *testing.T) {
 func TestAdaptSplit(t *testing.T) {
 	env := Env{
 		Split:        true,
-		CorpVPN:      &CorpVPN{Name: "Citrix Secure Access", DNS: []string{"10.9.9.9"}, Suffixes: []string{"corp.example"}, Gateway: "gw.corp.example"},
+		CorpVPN:      &CorpVPN{Name: "Citrix Secure Access", DNS: []string{"10.9.9.9"}, Suffixes: []string{"corp.example"}, Gateways: []string{"gw.corp.example", "gw2.corp.example"}, GatewayDNS: "192.168.1.1"},
 		RouteAddress: []string{"198.18.0.0/16", "5.6.7.8/32"},
 		RouteExclude: []string{"203.0.113.5/32"},
 	}
@@ -101,7 +101,11 @@ func TestAdaptSplit(t *testing.T) {
 		"# [Mejgorod] dns:",
 		"  enhanced-mode: fake-ip # [Mejgorod] было redir-host",
 		`    - "+.corp.example"`,
+		`    - "gw.corp.example"`,
+		`    - "gw2.corp.example"`,
 		`    "+.corp.example": "10.9.9.9"`,
+		`    "gw.corp.example": "192.168.1.1"`,
+		`    "gw2.corp.example": "192.168.1.1"`,
 		"  route-address:\n    - \"198.18.0.0/16\"",
 		"  route-exclude-address:\n    - \"203.0.113.5/32\"",
 	} {
