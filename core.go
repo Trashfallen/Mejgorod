@@ -70,6 +70,8 @@ type Core struct {
 	abortReason string
 	// errPermanent - последняя ошибка подключения не лечится повтором
 	errPermanent bool
+	// icmp сворачивает сотни «ping без ответа» в сводку
+	icmp icmpDigest
 }
 
 // permanentError - ошибка, которую повторная попытка не исправит (нет прав,
@@ -89,6 +91,7 @@ func (c *Core) ErrPermanent() bool {
 
 func newCore(app *App) *Core {
 	c := &Core{app: app, status: stStopped}
+	c.icmp.report = func(n int) { app.logs.Add("core", "info", icmpSummary(n)) }
 	if job, err := newKillOnCloseJob(); err == nil {
 		c.job = job
 	}
@@ -450,6 +453,12 @@ func (c *Core) pumpLogs(r io.Reader) {
 		level, msg := parseCoreLine(line)
 		if level == "raw" {
 			level = "info"
+		}
+		if isICMPTimeout(msg) {
+			if !c.icmp.take() {
+				continue
+			}
+			level = "debug"
 		}
 		c.app.logs.Add("core", level, msg)
 	}
