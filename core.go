@@ -70,8 +70,8 @@ type Core struct {
 	abortReason string
 	// errPermanent - последняя ошибка подключения не лечится повтором
 	errPermanent bool
-	// icmp сворачивает сотни «ping без ответа» в сводку
-	icmp icmpDigest
+	// сворачивают повторы в журнале в сводку (logdigest.go)
+	icmp, providers, dials logDigest
 }
 
 // permanentError - ошибка, которую повторная попытка не исправит (нет прав,
@@ -91,7 +91,12 @@ func (c *Core) ErrPermanent() bool {
 
 func newCore(app *App) *Core {
 	c := &Core{app: app, status: stStopped}
-	c.icmp.report = func(n int) { app.logs.Add("core", "info", icmpSummary(n)) }
+	c.icmp = logDigest{shown: icmpShown, window: icmpWindow,
+		report: func(_ string, n int) { app.logs.Add("core", "info", icmpSummary(n)) }}
+	c.providers = logDigest{window: providerWindow,
+		report: func(_ string, n int) { app.logs.Add("core", "info", providerSummary(n)) }}
+	c.dials = logDigest{shown: dialShown, window: dialWindow,
+		report: func(k string, n int) { app.logs.Add("core", "warning", dialSummary(k, n)) }}
 	if job, err := newKillOnCloseJob(); err == nil {
 		c.job = job
 	}
@@ -454,11 +459,20 @@ func (c *Core) pumpLogs(r io.Reader) {
 		if level == "raw" {
 			level = "info"
 		}
-		if isICMPTimeout(msg) {
-			if !c.icmp.take() {
+		msg = joinMultiline(msg)
+		switch key := dialErrKey(msg); {
+		case isICMPTimeout(msg):
+			if !c.icmp.take("") {
 				continue
 			}
 			level = "debug"
+		case isProviderRefresh(msg):
+			c.providers.take("")
+			continue
+		case key != "":
+			if !c.dials.take(key) {
+				continue
+			}
 		}
 		c.app.logs.Add("core", level, msg)
 	}
