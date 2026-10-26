@@ -399,6 +399,14 @@ func (a *App) hPutSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if in.Autostart != nil {
+		// новый автозапуск с правами администратора - только если exe не подменить без них;
+		// уже включенный не трогаем
+		if *in.Autostart && !installHardened && !autostartEnabled() {
+			writeErr(w, 400, "автозапуск: папку программы можно изменить без прав администратора, "+
+				"а автозапуск идет с ними. Положите Mejgorod.exe в отдельную пустую папку "+
+				"(например C:\\Program Files\\Mejgorod) и запустите оттуда")
+			return
+		}
 		if err := setAutostart(*in.Autostart, a.paths.Exe); err != nil {
 			writeErr(w, 500, "автозапуск: "+err.Error())
 			return

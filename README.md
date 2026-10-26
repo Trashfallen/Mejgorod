@@ -28,7 +28,7 @@ One-click Windows VPN client on the [mihomo](https://github.com/MetaCubeX/mihomo
 ## Getting started
 
 1. Build the app (see [Building](#building)) or take `Mejgorod.exe` from the Releases page, if there is one.
-2. Put `Mejgorod.exe` in any folder and run it. Data is kept in `data` next to the exe.
+2. Put `Mejgorod.exe` in a folder of its own (for example `C:\Program Files\Mejgorod`) and run it. Data is kept in `data` next to the exe. The app locks its folder against writes without admin rights, otherwise any process could replace the exe or the core. Autostart can only be turned on from such a folder.
 3. On the "Config" tab, paste your config or load a template.
 4. If the config has no servers, import a `vless://` link or a subscription link on the "Servers" tab.
 5. Press the power button.

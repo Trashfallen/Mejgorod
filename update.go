@@ -25,6 +25,8 @@ import (
 	"time"
 
 	"golang.org/x/sys/windows"
+
+	"mihomodesk/internal/relsign"
 )
 
 const (
@@ -53,6 +55,7 @@ type Updater struct {
 	mu    sync.Mutex
 	st    AppUpdate
 	asset string // ссылка на exe в релизе
+	sig   string // адрес <exe>.sig
 	size  int64
 }
 
@@ -141,16 +144,19 @@ func (u *Updater) Check(ctx context.Context) error {
 		u.set(func(s *AppUpdate) { s.Checked, s.Error = true, err.Error() })
 		return err
 	}
-	asset, size := "", int64(0)
+	asset, size, sig := "", int64(0), ""
 	for _, a := range rel.Assets {
 		if strings.EqualFold(a.Name, updateAsset) {
 			asset, size = a.URL, a.Size
+		}
+		if strings.EqualFold(a.Name, updateAsset+".sig") {
+			sig = a.URL
 		}
 	}
 	newer := newerVersion(rel.Tag, appVersion)
 	avail := asset != "" && newer
 	u.mu.Lock()
-	u.asset, u.size = asset, size
+	u.asset, u.size, u.sig = asset, size, sig
 	u.st.Checked, u.st.Available, u.st.Version, u.st.Notes, u.st.URL = true, avail, rel.Tag, rel.Body, rel.Page
 	switch {
 	case newer && asset == "":
@@ -166,7 +172,7 @@ func (u *Updater) Check(ctx context.Context) error {
 // download качает exe релиза в path и проверяет, что это программа Windows.
 func (u *Updater) download(ctx context.Context, path string) error {
 	u.mu.Lock()
-	url, size := u.asset, u.size
+	url, size, sigURL := u.asset, u.size, u.sig
 	u.mu.Unlock()
 	if url == "" {
 		return errors.New("в релизе нет " + updateAsset)
@@ -224,7 +230,7 @@ func (u *Updater) download(ctx context.Context, path string) error {
 	if got < 1<<20 || string(head) != "MZ" {
 		return errors.New("скачанный файл не похож на программу")
 	}
-	return nil
+	return relsign.VerifyFile(ctx, sigURL, appName+"/"+appVersion, updateAsset, path)
 }
 
 // installAppUpdate скачивает новую версию, ставит её на место текущей

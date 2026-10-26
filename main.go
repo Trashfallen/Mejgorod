@@ -77,6 +77,9 @@ func main() {
 		return
 	}
 	setupLog(paths)
+	if err := hardenInstall(paths); err != nil {
+		log.Printf("exe и ядро не закрыты от записи: %v", err)
+	}
 
 	go cleanupOldExe()
 	app, err := newApp(paths, *token)

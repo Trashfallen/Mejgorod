@@ -276,7 +276,12 @@ func serverIPs(doc *cfgDoc, servers []Server) []string {
 		}
 	}
 	for _, s := range servers {
-		if m := serverRe.FindStringSubmatch(s.YAML); m != nil {
+		if s.Link != "" {
+			// сервер по ссылке vless:// или из подписки: YAML у него пуст
+			if h := s.info().Host; h != "" {
+				hosts = append(hosts, h)
+			}
+		} else if m := serverRe.FindStringSubmatch(s.YAML); m != nil {
 			hosts = append(hosts, m[1])
 		}
 	}

@@ -1,6 +1,7 @@
 @echo off
 rem Build a release into its own folder release\vVERSION with only what goes to GitHub:
 rem   Mejgorod.exe          - for the in-app update (attach as is)
+rem   Mejgorod.exe.sig      - its signature, the in-app update checks it
 rem   Mejgorod-VERSION.zip  - for people: exe + mihomo core + short guide
 rem Usage: release.cmd 0.2.3
 setlocal
@@ -19,6 +20,9 @@ if not exist dist\data\core\mihomo.exe (
 if exist "%OUT%" rmdir /s /q "%OUT%"
 mkdir "%OUT%" || exit /b 1
 call "%~dp0build.cmd" "%OUT%\Mejgorod.exe" || exit /b 1
+rem Mejgorod.exe.sig: without it the in-app update refuses the new exe.
+rem Key: RELEASE_SIGNING_KEY or %USERPROFILE%\release-signing\release.key
+go run ./tools/signrelease "%OUT%\Mejgorod.exe" || exit /b 1
 if exist "%STAGE%" rmdir /s /q "%STAGE%"
 mkdir "%STAGE%\Mejgorod\data\core" || exit /b 1
 copy /y "%OUT%\Mejgorod.exe" "%STAGE%\Mejgorod\" >nul || exit /b 1
