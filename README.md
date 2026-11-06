@@ -67,7 +67,7 @@ rules:
   # Mejgorod: конец
 ```
 
-The section goes first in `rules`, so an explicit choice wins over the other rules. Lists found for sites go into a similar section at the end of `rule-providers`. Do not edit lines between the markers by hand: the Groups tab rewrites them. Profiles saved before the app was renamed from MihomoDesk keep working: their old `# MihomoDesk: ...` markers are still recognized and get migrated to the new ones on the next edit.
+The section goes first in `rules`, so an explicit choice wins over the other rules. Lists found for sites go into a similar section at the end of `rule-providers`. Do not edit lines between the markers by hand: the Groups tab rewrites them.
 
 ## Next to Citrix Secure Access and CryptoPro NGate
 
@@ -84,43 +84,18 @@ CryptoPro NGate is handled the same way (it is recognized by the name of its net
 
 If Citrix or NGate connects or disconnects while the VPN is on, the app reconnects by itself. If a routing loop still happens, the VPN turns off within a few seconds, and core log output is capped at 100 lines per second.
 
+## Tech stack
+
+- **Go** - the app: config adaptation, core control, updates, tray ([fyne.io/systray](https://github.com/fyne-io/systray)), YAML via [yaml.v3](https://github.com/go-yaml/yaml).
+- **[mihomo](https://github.com/MetaCubeX/mihomo)** - the proxy core in TUN mode, downloaded from its official releases.
+- **Edge in app mode** - the window; the UI is HTML/JS served by the app on `127.0.0.1`.
+- **[zashboard](https://github.com/Zephyruso/zashboard)** - the web dashboard added to the config.
+
 ## Building
 
 Requires Go 1.25+.
 
 ```
-build.cmd
+build.cmd        # dist\Mejgorod.exe
+go test ./...
 ```
-
-The script embeds the icon and version info and writes `dist\Mejgorod.exe`.
-
-UI debugging without admin rights and without TUN:
-
-```
-set MEJGOROD_DEV_NOTUN=1
-dist\Mejgorod.exe --no-elevate
-```
-
-Tests: `go test ./...`. Checking a real config with the core:
-
-```
-set MEJGOROD_CONFIG=path\to\config.yaml
-set MEJGOROD_CORE=dist\data\core\mihomo.exe
-go test -run TestAdaptRealConfig -v .
-```
-
-## Releases
-
-The app updates itself from the latest release of this repository:
-
-1. Run `release.cmd 0.2.6` (the next version). It creates the folder `release\v0.2.6` with exactly what goes to GitHub: `Mejgorod.exe` and `Mejgorod-0.2.6.zip` (exe + mihomo core + a short guide).
-2. Create a release with the tag `v0.2.6` and attach all files from that folder. The exe must be named exactly `Mejgorod.exe`: the app downloads it when updating. The zip is for people installing from scratch.
-3. Bump the default version in `main.go` and `build.cmd`.
-
-Apps with an older version offer the update on start. The version only goes up: a release with a lower number is never offered.
-
-## Credits
-
-- [mihomo](https://github.com/MetaCubeX/mihomo) by MetaCubeX: the proxy core, downloaded from its official releases.
-- [zashboard](https://github.com/Zephyruso/zashboard): the web dashboard added to the config.
-- [fyne.io/systray](https://github.com/fyne-io/systray): the tray icon.
