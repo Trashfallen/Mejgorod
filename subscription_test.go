@@ -87,3 +87,39 @@ func TestFindProxiesBlock(t *testing.T) {
 		t.Error("found proxies where there is none")
 	}
 }
+
+func TestMergeSubKeepsIDsAndOrder(t *testing.T) {
+	all := []Server{
+		{ID: "own1", Name: "Свой"},
+		{ID: "a1", Name: "Мой NL", Orig: "NL", Sub: "s1", Link: "vless://old-nl"},
+		{ID: "a2", Name: "DE", Orig: "DE", Sub: "s1", Link: "vless://de"},
+		{ID: "own2", Name: "Ещё свой"},
+	}
+	fresh := []Server{{Name: "NL", Link: "vless://new-nl"}, {Name: "FI", Link: "vless://fi"}, {Name: "US", Link: "vless://us"}}
+	next, names := mergeSub(all, "s1", fresh, []string{"US"}, map[string]bool{})
+	if len(next) != 4 || next[0].ID != "own1" || next[3].ID != "own2" {
+		t.Fatalf("порядок сломан: %+v", next)
+	}
+	if next[1].ID != "a1" || next[1].Name != "Мой NL" || next[1].Link != "vless://new-nl" {
+		t.Fatalf("NL должен сохранить ID и имя, но взять новую ссылку: %+v", next[1])
+	}
+	if next[2].Name != "FI" || next[2].Sub != "s1" || next[2].Orig != "FI" || next[2].ID == "" {
+		t.Fatalf("новый сервер FI: %+v", next[2])
+	}
+	if len(names) != 2 {
+		t.Fatalf("US в skip, DE пропал из подписки: %v", names)
+	}
+	again, _ := mergeSub(next, "s1", fresh, []string{"US"}, map[string]bool{})
+	if !sameServers(again, next) {
+		t.Fatal("повтор с той же подпиской должен давать тот же список")
+	}
+}
+
+func TestProfileTitle(t *testing.T) {
+	if got := profileTitle("base64:0JzQvtC5IFZQTg=="); got != "Мой VPN" {
+		t.Fatalf("base64: %q", got)
+	}
+	if got := profileTitle(" Plain "); got != "Plain" {
+		t.Fatalf("plain: %q", got)
+	}
+}

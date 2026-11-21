@@ -70,6 +70,8 @@ func (a *App) startServer() error {
 	mux.HandleFunc("POST /api/servers", a.auth(a.hAddServers))
 	mux.HandleFunc("POST /api/servers/subscription/preview", a.auth(a.hSubPreview))
 	mux.HandleFunc("POST /api/servers/subscription/import", a.auth(a.hSubImport))
+	mux.HandleFunc("POST /api/servers/subscription/{id}/refresh", a.auth(a.hSubRefresh))
+	mux.HandleFunc("DELETE /api/servers/subscription/{id}", a.auth(a.hSubDelete))
 	mux.HandleFunc("PUT /api/servers/active", a.auth(a.hServerActive))
 	mux.HandleFunc("PUT /api/servers/group", a.auth(a.hServerGroup))
 	mux.HandleFunc("PUT /api/servers/{id}", a.auth(a.hRenameServer))
@@ -559,7 +561,16 @@ func (a *App) serversResp() map[string]any {
 	if groups == nil {
 		groups = []string{}
 	}
+	subs := make([]map[string]any, 0, len(snap.Subs))
+	for _, sb := range snap.Subs {
+		m := map[string]any{"id": sb.ID, "name": sb.Name, "url": sb.URL, "error": sb.Error}
+		if !sb.Updated.IsZero() {
+			m["updated"] = sb.Updated.Format(time.RFC3339)
+		}
+		subs = append(subs, m)
+	}
 	resp := map[string]any{
+		"subs":    subs,
 		"servers": desk,
 		"config":  cfg,
 		"groups":  groups,
@@ -705,6 +716,12 @@ func (a *App) hDeleteServer(w http.ResponseWriter, r *http.Request) {
 			if s.ID == id {
 				name = s.Name
 				f.Servers = append(f.Servers[:i], f.Servers[i+1:]...)
+				for j := range f.Subs {
+					if s.Sub != "" && f.Subs[j].ID == s.Sub {
+						// сервер из подписки: при обновлении не возвращать
+						f.Subs[j].Skip = append(append([]string{}, f.Subs[j].Skip...), s.Orig)
+					}
+				}
 				if f.Active == name {
 					// выбран был удалённый: берём первый оставшийся, иначе как в конфиге
 					f.Active = ""

@@ -5,6 +5,7 @@ package main
 // поэтому ждём сеть и повторяем, пока пользователь сам ничего не нажал.
 
 import (
+	"context"
 	"fmt"
 	"time"
 )
@@ -40,38 +41,67 @@ func waitFor(cond func() bool, timeout time.Duration) bool {
 	return true
 }
 
-// autoConnect подключает VPN в фоне: ждёт сеть и повторяет неудачные попытки.
-func (a *App) autoConnect() {
+// onLaunch - фон при запуске программы: сначала перекачать подписки (серверы
+// за ссылкой у провайдера могли поменяться), потом, если надо, подключиться.
+// Подписка, не скачавшаяся напрямую, пробуется ещё раз уже через VPN.
+func (a *App) onLaunch(connect bool) {
+	if len(a.servers.Snapshot().Subs) == 0 {
+		if connect {
+			go func() { a.waitNetwork("перед подключением"); a.connectWithRetry() }()
+		}
+		return
+	}
 	go func() {
-		if !networkReady() {
-			a.logs.Add("app", "info", "Жду сеть перед подключением")
-			if !waitFor(networkReady, 2*time.Minute) {
-				a.logs.Add("app", "warning", "Сети нет уже 2 минуты, подключаюсь всё равно")
+		a.waitNetwork("перед обновлением подписок")
+		changed, failed := a.refreshSubs(context.Background(), false)
+		if !connect {
+			if changed {
+				a.restartIfRunning() // успели подключиться вручную со старыми серверами
+			}
+			return
+		}
+		a.connectWithRetry()
+		if failed > 0 && a.core.Status() == stRunning {
+			if ch, _ := a.refreshSubs(context.Background(), true); ch {
+				a.restartIfRunning()
 			}
 		}
-		autoConnector{
-			attempt: func() string {
-				a.core.Connect()
-				for {
-					if st := a.core.Status(); st != stStarting && st != stStopping {
-						return st
-					}
-					time.Sleep(500 * time.Millisecond)
-				}
-			},
-			permanent: a.core.ErrPermanent,
-			pause: func(d time.Duration) bool {
-				for end := time.Now().Add(d); time.Now().Before(end); time.Sleep(500 * time.Millisecond) {
-					if a.core.Status() != stError {
-						return false
-					}
-				}
-				return true
-			},
-			logf: func(format string, args ...any) {
-				a.logs.Add("app", "info", fmt.Sprintf(format, args...))
-			},
-			delays: []time.Duration{10 * time.Second, 20 * time.Second, 30 * time.Second, 60 * time.Second, 60 * time.Second, 60 * time.Second, 60 * time.Second, 60 * time.Second, 60 * time.Second},
-		}.run()
 	}()
+}
+
+func (a *App) waitNetwork(why string) {
+	if !networkReady() {
+		a.logs.Add("app", "info", "Жду сеть "+why)
+		if !waitFor(networkReady, 2*time.Minute) {
+			a.logs.Add("app", "warning", "Сети нет уже 2 минуты, продолжаю всё равно")
+		}
+	}
+}
+
+// connectWithRetry подключает VPN и повторяет неудачные попытки.
+func (a *App) connectWithRetry() {
+	autoConnector{
+		attempt: func() string {
+			a.core.Connect()
+			for {
+				if st := a.core.Status(); st != stStarting && st != stStopping {
+					return st
+				}
+				time.Sleep(500 * time.Millisecond)
+			}
+		},
+		permanent: a.core.ErrPermanent,
+		pause: func(d time.Duration) bool {
+			for end := time.Now().Add(d); time.Now().Before(end); time.Sleep(500 * time.Millisecond) {
+				if a.core.Status() != stError {
+					return false
+				}
+			}
+			return true
+		},
+		logf: func(format string, args ...any) {
+			a.logs.Add("app", "info", fmt.Sprintf(format, args...))
+		},
+		delays: []time.Duration{10 * time.Second, 20 * time.Second, 30 * time.Second, 60 * time.Second, 60 * time.Second, 60 * time.Second, 60 * time.Second, 60 * time.Second, 60 * time.Second},
+	}.run()
 }

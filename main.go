@@ -99,9 +99,7 @@ func main() {
 	if !*autostart && !*noWindow {
 		go app.openWindow()
 	}
-	if *connect || app.settings.Get().ConnectOnLaunch {
-		app.autoConnect()
-	}
+	app.onLaunch(*connect || app.settings.Get().ConnectOnLaunch)
 	if !app.settings.Get().NoUpdateCheck {
 		go func() {
 			time.Sleep(time.Second)

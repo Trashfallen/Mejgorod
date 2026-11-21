@@ -1333,12 +1333,31 @@ function renderServers() {
       own ? null : h('span', { class: 'badge', title: 'Этот сервер записан в конфиге: меняется на вкладке «Конфиг»' }, 'из конфига'),
       delayEl(s.name),
       own ? h('div', { class: 'srv-actions' },
-        h('button', { class: 'icon-btn', title: 'Настроить параметры', onclick: () => editServer(s) }, svg(ICON_GEAR)),
+        s.sub ? null : h('button', { class: 'icon-btn', title: 'Настроить параметры', onclick: () => editServer(s) }, svg(ICON_GEAR)),
         s.link ? h('button', { class: 'icon-btn', title: 'Скопировать ссылку', onclick: () => copyText(s.link, 'Ссылка скопирована') }, svg(ICON_COPY)) : null,
         h('button', { class: 'icon-btn', title: 'Переименовать', onclick: () => renameServer(s) }, svg(ICON_EDIT)),
         h('button', { class: 'icon-btn danger', title: 'Удалить', onclick: () => deleteServer(s) }, svg(ICON_TRASH))) : null);
   };
-  $('#srvList').replaceChildren(...list.map((s) => row(s, true)), ...SRV.config.map((s) => row(s, false)));
+  const subs = SRV.subs || [];
+  const known = new Set(subs.map((sb) => sb.id));
+  const groups = subs.map((sb) => {
+    const items = list.filter((s) => s.sub === sb.id);
+    return h('div', { class: 'srv-group' },
+      h('div', { class: 'srv-group-head' },
+        h('div', { class: 'srv-text' },
+          h('b', {}, sb.name),
+          h('span', { title: sb.url }, subInfo(sb, items.length))),
+        sb.error ? h('span', { class: 'badge warn', title: sb.error }, 'не обновилась') : null,
+        h('div', { class: 'srv-actions' },
+          h('button', { class: 'btn small', title: 'Скачать подписку заново и заменить её серверы', onclick: (e) => refreshSub(sb, e.currentTarget) }, 'Обновить'),
+          h('button', { class: 'icon-btn', title: 'Скопировать ссылку на подписку', onclick: () => copyText(sb.url, 'Ссылка на подписку скопирована') }, svg(ICON_COPY)),
+          h('button', { class: 'icon-btn danger', title: 'Удалить подписку с её серверами', onclick: () => deleteSub(sb) }, svg(ICON_TRASH)))),
+      ...items.map((s) => row(s, true)));
+  });
+  $('#srvList').replaceChildren(
+    ...list.filter((s) => !s.sub || !known.has(s.sub)).map((s) => row(s, true)),
+    ...groups,
+    ...SRV.config.map((s) => row(s, false)));
   $('#srvEmpty').hidden = list.length + SRV.config.length > 0;
   $('#srvPing').disabled = !SRV.running || !(list.length + SRV.config.length);
   $('#srvNote').textContent = SRV.running && chosen && !list.some((s) => s.name === chosen) && !SRV.config.some((s) => s.name === chosen)
@@ -1349,6 +1368,43 @@ function renderServers() {
     srvAutoPinged = true;
     pingServers();
   }
+}
+
+function subInfo(sb, n) {
+  const parts = ['Подписка', n + ' ' + plural(n, 'сервер', 'сервера', 'серверов')];
+  if (sb.updated) {
+    const d = new Date(sb.updated);
+    parts.push('обновлена ' + d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }));
+  }
+  if (sb.error) parts.push(sb.error);
+  return parts.join(' · ');
+}
+
+function plural(n, one, few, many) {
+  const m10 = n % 10, m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return one;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+  return many;
+}
+
+async function refreshSub(sb, btn) {
+  busy(btn, true);
+  try {
+    const d = await api('/servers/subscription/' + sb.id + '/refresh', { method: 'POST' });
+    toast(d.changed ? ('Подписка обновлена' + (d.restarted ? ', переподключаюсь' : '')) : 'В подписке ничего не поменялось', 'ok');
+    srvAutoPinged = false;
+  } catch (e) { toast(e.message, 'err'); }
+  busy(btn, false);
+  loadServers();
+}
+
+async function deleteSub(sb) {
+  if (!confirm('Удалить подписку «' + sb.name + '» вместе с её серверами?')) return;
+  try {
+    const d = await api('/servers/subscription/' + sb.id, { method: 'DELETE' });
+    toast(d.restarted ? 'Удалено, переподключаюсь' : 'Удалено', 'ok');
+    loadServers();
+  } catch (e) { toast(e.message, 'err'); }
 }
 
 async function chooseServer(name) {
@@ -1640,6 +1696,7 @@ $('#srvAddConfirm').addEventListener('click', async (e) => {
 
 // ---------- импорт подписки ----------
 let subFound = null; // последний результат /subscription/preview
+let subMeta = null;  // { url, name } найденной подписки
 
 function subRow(s, i) {
   return h('label', { class: 'sub-row' },
@@ -1659,13 +1716,15 @@ $('#subFind').addEventListener('click', async (e) => {
   try {
     const d = await api('/servers/subscription/preview', { method: 'POST', body: { url } });
     subFound = d.servers;
+    subMeta = { url, name: d.name || '' };
     $('#subList').replaceChildren(...subFound.map(subRow));
     $('#subAll').checked = true;
-    $('#subCount').textContent = 'Найдено: ' + subFound.length;
+    $('#subCount').textContent = (d.name ? d.name + ' · ' : '') + 'найдено: ' + subFound.length;
     $('#subListWrap').hidden = false;
     $('#subImportResult').replaceChildren();
     $('#subImportResult').className = 'result';
     if (d.errors && d.errors.length) { res.className = 'result fail'; res.replaceChildren(...d.errors.map((er) => h('div', {}, er))); }
+    else if (d.known) { res.className = 'result'; res.textContent = 'Эта подписка уже добавлена («' + d.known + '»): импорт заменит её серверы.'; }
   } catch (err) {
     subFound = null;
     res.className = 'result fail';
@@ -1674,18 +1733,29 @@ $('#subFind').addEventListener('click', async (e) => {
   busy(btn, false);
 });
 
+$('#subPasteBtn').addEventListener('click', async () => {
+  let text;
+  try { text = (await navigator.clipboard.readText()).trim(); }
+  catch (e) { toast('Нет доступа к буферу: нажмите Ctrl+V в поле', 'warn'); $('#subUrl').focus(); return; }
+  if (!text) return toast('Буфер пустой', 'warn');
+  $('#subUrl').value = text;
+  if (/^https?:\/\//i.test(text)) $('#subFind').click();
+});
+
 $('#subAll').addEventListener('change', (e) => {
   $$('.subChk').forEach((c) => { c.checked = e.target.checked; });
 });
 
 $('#subImportConfirm').addEventListener('click', async (e) => {
   if (!subFound || !subFound.length) return;
-  const items = [...document.querySelectorAll('.subChk')].filter((c) => c.checked).map((c) => subFound[+c.dataset.i]);
+  const chks = [...document.querySelectorAll('.subChk')];
+  const items = chks.filter((c) => c.checked).map((c) => subFound[+c.dataset.i]);
+  const skip = chks.filter((c) => !c.checked).map((c) => subFound[+c.dataset.i].name);
   if (!items.length) return toast('Отметьте хотя бы один сервер', 'warn');
   const btn = e.currentTarget;
   busy(btn, true);
   try {
-    const d = await api('/servers/subscription/import', { method: 'POST', body: { items } });
+    const d = await api('/servers/subscription/import', { method: 'POST', body: { items, skip, url: subMeta ? subMeta.url : '', name: subMeta ? subMeta.name : '' } });
     d.errors = d.errors || [];
     d.added = d.added || [];
     const box = $('#subImportResult');

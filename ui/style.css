@@ -425,6 +425,10 @@ label.row { cursor: pointer; }
 .srv-actions .icon-btn svg { width: 15px; height: 15px; }
 .icon-btn.danger:hover { color: var(--err); border-color: var(--err); }
 .srv-note { margin-top: 14px; }
+.srv-group { display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 1px dashed var(--line-2); border-radius: var(--radius); background: var(--panel-2); }
+.srv-group-head { display: flex; align-items: center; gap: 12px; padding: 2px 4px 2px 6px; }
+.srv-group-head .srv-text { flex: 1; }
+.srv-group-head .badge.warn { background: var(--panel-3); color: var(--err); flex: none; }
 code { font-family: var(--mono); font-size: 0.92em; background: var(--panel-3); padding: 1px 5px; border-radius: 5px; }
 
 .hero-server {

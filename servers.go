@@ -24,6 +24,8 @@ type Server struct {
 	Name string `json:"name"`
 	Link string `json:"link,omitempty"` // исходная ссылка vless://
 	YAML string `json:"yaml,omitempty"` // или блок YAML (один элемент списка, с "- ")
+	Sub  string `json:"sub,omitempty"`  // ID подписки, из которой пришёл сервер
+	Orig string `json:"orig,omitempty"` // имя сервера в подписке (Name можно переименовать)
 }
 
 // ServerInfo - то, что показывает вкладка «Серверы».
@@ -37,12 +39,14 @@ type ServerInfo struct {
 	Sec    string `json:"sec"`
 	Source string `json:"source"` // desk | config
 	Link   string `json:"link,omitempty"`
+	Sub    string `json:"sub,omitempty"`
 }
 
 type serversFile struct {
-	Servers []Server `json:"servers"`
-	Active  string   `json:"active"` // имя выбранного сервера; "" - как в конфиге
-	Group   string   `json:"group"`  // группа для переключения; "" - первая select-группа
+	Servers []Server       `json:"servers"`
+	Active  string         `json:"active"` // имя выбранного сервера; "" - как в конфиге
+	Group   string         `json:"group"`  // группа для переключения; "" - первая select-группа
+	Subs    []Subscription `json:"subs,omitempty"`
 }
 
 type ServerStore struct {
@@ -64,6 +68,7 @@ func (st *ServerStore) Snapshot() serversFile {
 	defer st.mu.Unlock()
 	f := st.f
 	f.Servers = append([]Server(nil), st.f.Servers...)
+	f.Subs = append([]Subscription(nil), st.f.Subs...)
 	return f
 }
 
@@ -72,6 +77,7 @@ func (st *ServerStore) Update(fn func(*serversFile) error) error {
 	defer st.mu.Unlock()
 	next := st.f
 	next.Servers = append([]Server(nil), st.f.Servers...)
+	next.Subs = append([]Subscription(nil), st.f.Subs...)
 	if err := fn(&next); err != nil {
 		return err
 	}
@@ -588,7 +594,7 @@ func selectGroups(src string) []string {
 }
 
 func (s Server) info() ServerInfo {
-	si := ServerInfo{ID: s.ID, Name: s.Name, Source: "desk", Link: s.Link}
+	si := ServerInfo{ID: s.ID, Name: s.Name, Source: "desk", Link: s.Link, Sub: s.Sub}
 	if s.Link != "" {
 		u, err := url.Parse(s.Link)
 		if err == nil {
